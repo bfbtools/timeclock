@@ -24,6 +24,14 @@ const I = {
     fb_note: 'New here? Add your name and set a PIN. Your rate is set by the office.',
     fb_first: 'First name', fb_last: 'Last name', fb_sub: 'Your company / sub',
     fb_subsel: 'Select', fb_save: 'Continue & set PIN',
+    myhours: 'View my hours', back: 'Back',
+    tl_title: 'My time', tl_locked: 'Locked — the week closed Saturday',
+    tl_total: 'Week total', tl_add: 'Add a missed punch',
+    ap_title: 'Add a missed punch', ap_note: 'This will be flagged as a manual entry for the office to review.',
+    ap_which: 'Clock in or out?', ap_day: 'Day', ap_time: 'Time', ap_save: 'Save punch',
+    inv_title: 'Invoice draft', inv_total: 'Total', inv_hint: 'Draft • auto-sends midnight Saturday',
+    invEmpty: 'No hours logged this week yet.', pickFirst: 'Pick your name first.',
+    apMissing: 'Pick a day and time.', locale: 'en-US',
     err: 'Something went wrong. Try again.', errName: 'Enter your first and last name.',
     errSub: 'Pick your company.', noSite: 'No jobsite in the link. Scan the QR at the site.',
   },
@@ -45,6 +53,14 @@ const I = {
     fb_note: '¿Eres nuevo? Agrega tu nombre y crea un PIN. La oficina define tu tarifa.',
     fb_first: 'Nombre', fb_last: 'Apellido', fb_sub: 'Tu compañía / sub',
     fb_subsel: 'Selecciona', fb_save: 'Continuar y crear PIN',
+    myhours: 'Ver mis horas', back: 'Atrás',
+    tl_title: 'Mi tiempo', tl_locked: 'Cerrado — la semana terminó el sábado',
+    tl_total: 'Total de la semana', tl_add: 'Agregar marca olvidada',
+    ap_title: 'Agregar marca olvidada', ap_note: 'Se marcará como entrada manual para que la oficina la revise.',
+    ap_which: '¿Entrada o salida?', ap_day: 'Día', ap_time: 'Hora', ap_save: 'Guardar marca',
+    inv_title: 'Borrador de factura', inv_total: 'Total', inv_hint: 'Borrador • se envía el sábado a medianoche',
+    invEmpty: 'Aún no hay horas esta semana.', pickFirst: 'Selecciona tu nombre primero.',
+    apMissing: 'Selecciona día y hora.', locale: 'es',
     err: 'Algo salió mal. Inténtalo de nuevo.', errName: 'Escribe tu nombre y apellido.',
     errSub: 'Selecciona tu compañía.', noSite: 'No hay obra en el enlace. Escanea el QR en la obra.',
   },
@@ -57,6 +73,7 @@ const $ = (id) => document.getElementById(id);
 const views = {
   clock: $('view-clock'), pin: $('view-pin'),
   recovery: $('view-recovery'), fallback: $('view-fallback'),
+  timelog: $('view-timelog'), addpunch: $('view-addpunch'), invoice: $('view-invoice'),
 };
 function show(name) {
   Object.values(views).forEach((v) => v.classList.remove('active'));
@@ -71,6 +88,9 @@ const state = {
   pinMode: 'enter',    // 'enter' | 'set' | 'confirm'
   pinBuf: '',
   pinFirst: '',        // first entry during a set
+  intent: 'clock',     // 'clock' | 'secondary' | 'addpunch'
+  timelog: null,       // last-loaded time log (for the add-punch day list)
+  apAction: 'IN',
 };
 
 /* ------------------------------------------------------------------ api */
@@ -107,6 +127,20 @@ const API = {
       return await r.json();
     } catch { return { ok: false, error: t('err') }; }
   },
+  async timelog(workerId, pin) {
+    if (state.data?.demo) return demoTimelog();
+    try {
+      const r = await fetch(`/api/timelog?workerId=${encodeURIComponent(workerId)}&pin=${encodeURIComponent(pin)}`);
+      return await r.json();
+    } catch { return { ok: false, error: t('err') }; }
+  },
+  async invoice(workerId, pin) {
+    if (state.data?.demo) return demoInvoice();
+    try {
+      const r = await fetch(`/api/invoice?workerId=${encodeURIComponent(workerId)}&pin=${encodeURIComponent(pin)}`);
+      return await r.json();
+    } catch { return { ok: false, error: t('err') }; }
+  },
 };
 const json = { 'content-type': 'application/json' };
 
@@ -135,6 +169,38 @@ function demoSite() {
 }
 function priorDayISO() { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); }
 function priorDayLabel() { const d = new Date(); d.setDate(d.getDate() - 1); return d.toLocaleDateString(I[lang].loc, { weekday: 'long', month: 'long', day: 'numeric' }); }
+function weekMondayISO() { const d = new Date(); const delta = (d.getDay() + 6) % 7; d.setDate(d.getDate() - delta); return d.toISOString().slice(0, 10); }
+function addDaysISO(iso, n) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+function datesInclusive(a, b) { const out = []; let d = a; while (d <= b) { out.push(d); d = addDaysISO(d, 1); } return out; }
+function demoTimelog() {
+  const ws = weekMondayISO(), we = addDaysISO(ws, 5);
+  const mk = (off, hrs, punches) => ({ date: addDaysISO(ws, off), hours: hrs, unpaired: 0, punches });
+  return {
+    ok: true, worker: { id: 'W1', name: 'Fredy', type: 'employee' },
+    weekStart: ws, weekEnd: we, locked: false, weekHours: 16, flags: [],
+    days: [
+      mk(0, 8, [{ time: '07:00', action: 'IN', manual: false, edited: false }, { time: '15:00', action: 'OUT', manual: false, edited: false }]),
+      mk(1, 0, []),
+      mk(2, 8, [{ time: '07:15', action: 'IN', manual: false, edited: false }, { time: '15:15', action: 'OUT', manual: true, edited: true }]),
+      mk(3, 0, []), mk(4, 0, []), mk(5, 0, []),
+    ],
+  };
+}
+function demoInvoice() {
+  const ws = weekMondayISO(), we = addDaysISO(ws, 5);
+  return {
+    ok: true, invoice: {
+      company: 'Diego Exterior LLC', subId: 'S5', weekStart: ws, weekEnd: we,
+      projects: [{
+        projectId: 'PRJ_A', name: 'French Hill Rd — Bldg 1', hours: 24, rate: 55, amount: 1320,
+        perDay: [{ date: ws, hours: 8 }, { date: addDaysISO(ws, 1), hours: 8 }, { date: addDaysISO(ws, 2), hours: 8 }],
+      }],
+      workerLines: [{ worker: 'Diego', hours: 24, rate: 55, amount: 1320 }],
+      laborTotal: 1320, materials: [{ amount: 145.30, note: 'fasteners + blades', project: 'PRJ_A' }],
+      materialsTotal: 145.30, total: 1465.30, flags: [],
+    },
+  };
+}
 
 /* ------------------------------------------------------------------ i18n render */
 function applyI18n() {
@@ -223,7 +289,8 @@ function setMainButton() {
 }
 
 /* ------------------------------------------------------------------ PIN */
-function openPin() {
+function openPin(intent = 'clock') {
+  state.intent = intent;
   state.pinBuf = ''; state.pinFirst = '';
   state.pinMode = state.worker.hasPin ? 'enter' : 'set';
   $('pinName').textContent = `${state.worker.name} — ${state.worker.sub}`;
@@ -280,6 +347,8 @@ function pinFail(msg) {
 function afterAuth(pin) {
   state.authedPin = pin;
   localStorage.setItem('bfb_worker', state.worker.id);
+  if (state.intent === 'secondary') { openSecondary(); return; }
+  if (state.intent === 'addpunch') { openAddPunch(); return; }
   if (state.worker.openPriorDate) { openRecovery(); return; }
   doPunch(state.worker.status === 'in' ? 'OUT' : 'IN');
 }
@@ -349,6 +418,121 @@ async function submitFallback() {
   openPin(); // hasPin false → set-PIN flow
 }
 
+/* ------------------------------------------------------------- secondary tab */
+function showLoading(on) { $('loading').classList.toggle('hidden', !on); }
+function fmtDayLong(iso) { return new Date(iso + 'T00:00:00').toLocaleDateString(I[lang].locale, { weekday: 'long', month: 'short', day: 'numeric' }); }
+function fmtShort(iso) { return new Date(iso + 'T00:00:00').toLocaleDateString(I[lang].locale, { month: 'short', day: 'numeric' }); }
+function fmtRange(a, b) { return `${fmtShort(a)} – ${fmtShort(b)}`; }
+function money(n) { return '$' + (Math.round(n * 100) / 100).toLocaleString(I[lang].locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+async function openSecondary() {
+  const w = state.worker;
+  showLoading(true);
+  const type = w.type || 'employee';
+  if (type === 'employee') {
+    const data = await API.timelog(w.id, state.authedPin);
+    showLoading(false);
+    if (!data.ok) { alert(data.error || t('err')); resetToClock(); return; }
+    state.timelog = data; renderTimeLog(data); show('timelog');
+  } else {
+    const data = await API.invoice(w.id, state.authedPin);
+    if (data.ok && data.notOwner) { // safety: owner flag off → show time log
+      const tl = await API.timelog(w.id, state.authedPin);
+      showLoading(false);
+      if (!tl.ok) { alert(tl.error || t('err')); resetToClock(); return; }
+      state.timelog = tl; renderTimeLog(tl); show('timelog'); return;
+    }
+    showLoading(false);
+    if (!data.ok) { alert(data.error || t('err')); resetToClock(); return; }
+    renderInvoice(data.invoice); show('invoice');
+  }
+}
+
+function renderFlags(el, flags) {
+  el.innerHTML = '';
+  (flags || []).forEach((f) => {
+    const d = document.createElement('div'); d.className = 'flagline';
+    const who = f.worker ? `${f.worker}, ` : '';
+    d.innerHTML = `<span class="material-symbols-rounded">flag</span><span>${who}${fmtShort(f.date)} — ${f.reason}</span>`;
+    el.appendChild(d);
+  });
+}
+
+function renderTimeLog(d) {
+  $('tlWeek').textContent = fmtRange(d.weekStart, d.weekEnd);
+  $('tlLocked').classList.toggle('hidden', !d.locked);
+  $('tlAdd').classList.toggle('hidden', d.locked);
+  const wrap = $('tlDays'); wrap.innerHTML = '';
+  d.days.forEach((day) => {
+    const el = document.createElement('div');
+    el.className = 'tl-day' + (!day.hours && !day.punches.length ? ' empty' : '');
+    const chips = day.punches.map((p) => {
+      const flagged = p.manual || p.edited ? ' flagged' : '';
+      const icon = p.action === 'IN' ? 'login' : 'logout';
+      const mark = (p.manual || p.edited) ? ' ✎' : '';
+      return `<span class="chip ${p.action === 'IN' ? 'in' : 'out'}${flagged}"><span class="material-symbols-rounded">${icon}</span>${p.time}${mark}</span>`;
+    }).join('');
+    el.innerHTML = `<div class="drow"><span class="dname">${fmtDayLong(day.date)}</span>`
+      + `<span class="dhrs ${day.hours ? '' : 'zero'}">${day.hours ? day.hours + 'h' : '—'}</span></div>`
+      + (chips ? `<div class="punches">${chips}</div>` : '');
+    wrap.appendChild(el);
+  });
+  $('tlTotal').textContent = d.weekHours + 'h';
+  renderFlags($('tlFlags'), d.flags);
+}
+
+function renderInvoice(inv) {
+  $('invMeta').innerHTML = `<div class="co">${inv.company}</div><div class="wk">${fmtRange(inv.weekStart, inv.weekEnd)}</div>`;
+  const lines = $('invLines'); lines.innerHTML = '';
+  const matLabel = lang === 'en' ? 'Materials' : 'Materiales';
+  if (!inv.projects.length && !inv.materials.length) {
+    lines.innerHTML = `<div class="inv-empty">${t('invEmpty')}</div>`;
+    $('invTotalRow').classList.add('hidden');
+    renderFlags($('invFlags'), inv.flags); return;
+  }
+  inv.projects.forEach((p) => {
+    const el = document.createElement('div'); el.className = 'inv-line';
+    const rate = p.rate ? ` @ ${money(p.rate)}/hr` : '';
+    const days = p.perDay.map((d) => `${fmtShort(d.date)} ${d.hours}h`).join(' · ');
+    el.innerHTML = `<div class="top"><span class="pname">${p.name}</span><span class="pamt">${money(p.amount)}</span></div>`
+      + `<div class="sub">${p.hours}h${rate}</div><div class="inv-days">${days}</div>`;
+    lines.appendChild(el);
+  });
+  inv.materials.forEach((m) => {
+    const el = document.createElement('div'); el.className = 'inv-line';
+    el.innerHTML = `<div class="top"><span class="pname">${matLabel}${m.note ? ' — ' + m.note : ''}</span><span class="pamt">${money(m.amount)}</span></div>`;
+    lines.appendChild(el);
+  });
+  $('invTotal').textContent = money(inv.total);
+  $('invTotalRow').classList.remove('hidden');
+  renderFlags($('invFlags'), inv.flags);
+}
+
+/* ---- add a missed punch (PIN re-entered before this opens) ---- */
+function openAddPunch() {
+  state.apAction = 'IN';
+  document.querySelectorAll('#apSeg button').forEach((b) => b.classList.toggle('on', b.dataset.act === 'IN'));
+  document.querySelectorAll('#apSeg button').forEach((b) => b.classList.remove('out'));
+  const sel = $('apDay'); sel.innerHTML = '';
+  const tl = state.timelog;
+  const dates = tl ? datesInclusive(tl.weekStart, tl.weekEnd) : datesInclusive(weekMondayISO(), addDaysISO(weekMondayISO(), 5));
+  dates.forEach((iso) => { const o = document.createElement('option'); o.value = iso; o.textContent = fmtDayLong(iso); sel.appendChild(o); });
+  $('apTime').value = '';
+  show('addpunch');
+}
+async function submitAddPunch() {
+  const day = $('apDay').value, time = $('apTime').value;
+  if (!day || !time) { alert(t('apMissing')); return; }
+  const at = `${day}T${time}:00`;
+  showLoading(true);
+  const res = await API.punch({ workerId: state.worker.id, pin: state.authedPin, action: state.apAction, at, missed: true });
+  if (!res.ok) { showLoading(false); alert(res.error || t('err')); return; }
+  const tl = await API.timelog(state.worker.id, state.authedPin); // refresh
+  showLoading(false);
+  if (tl.ok) { state.timelog = tl; renderTimeLog(tl); }
+  show('timelog');
+}
+
 /* ------------------------------------------------------------------ reset / nav */
 function resetToClock() {
   state.pinBuf = ''; state.pinFirst = ''; state.authedPin = null;
@@ -371,8 +555,28 @@ function bind() {
     localStorage.removeItem('bfb_worker'); state.worker = null;
     renderRemembered(); setMainButton();
   });
-  $('mainBtn').addEventListener('click', () => { if (state.worker) openPin(); });
+  $('mainBtn').addEventListener('click', () => { if (state.worker) openPin('clock'); });
   $('fallbackBtn').addEventListener('click', openFallback);
+  $('secondaryBtn').addEventListener('click', () => {
+    if (!state.worker) { alert(t('pickFirst')); return; }
+    openPin('secondary');
+  });
+
+  // secondary tab nav
+  $('tlBack').addEventListener('click', resetToClock);
+  $('invBack').addEventListener('click', resetToClock);
+  $('tlAdd').addEventListener('click', () => openPin('addpunch')); // PIN again to add
+  $('apBack').addEventListener('click', () => show('timelog'));
+  $('apCancel').addEventListener('click', () => show('timelog'));
+  $('apSubmit').addEventListener('click', submitAddPunch);
+  $('apSeg').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    state.apAction = b.dataset.act;
+    document.querySelectorAll('#apSeg button').forEach((x) => {
+      x.classList.toggle('on', x === b);
+      x.classList.toggle('out', x === b && b.dataset.act === 'OUT');
+    });
+  });
 
   $('keypad').addEventListener('click', (e) => {
     const b = e.target.closest('.key'); if (b) pinKey(b.dataset.k);

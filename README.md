@@ -87,8 +87,8 @@ the message says what's wrong (missing env var, bad JSON, or Sheet not shared).
 1. ✅ Scaffold + Netlify config + Sheets read/write helper.
 2. ✅ Front end from the approved preview + API functions (site/auth/punch/worker).
 3. ✅ Rollup engine (pairing, hours, lunch, Carlito, Mon–Sat) + unit tests (`npm test`).
-4. ⬜ Employee Time Log + Subcontractor Invoice Draft.  ← **next**
-5. ⬜ Invoicing (independent auto-send, company toggle, QB + GC drafts).
+4. ✅ PIN-gated Time Log (employees) + Invoice Draft (owners/independents).
+5. ⬜ Invoicing (independent auto-send, company toggle, QB + GC drafts).  ← **next**
 6. ⬜ Materials capture + Drive receipt upload; RateLog + change email.
 
 ## Guardrails

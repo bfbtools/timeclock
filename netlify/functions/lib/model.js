@@ -53,6 +53,37 @@ export async function getWorkerById(id) {
   return rows.find((w) => String(w.WorkerID).trim() === String(id).trim()) || null;
 }
 
+export async function getWorkersBySub(subId) {
+  const { rows } = await readTab(TABS.WORKERS);
+  return rows.filter((w) => isActive(w) && String(w.SubID).trim() === String(subId).trim());
+}
+
+export async function getProjectsById() {
+  const { rows } = await readTab(TABS.PROJECTS);
+  const map = {};
+  rows.forEach((p) => { map[String(p.ProjectID).trim()] = p; });
+  return map;
+}
+
+// All punches for a set of worker ids whose day falls within [start, end].
+export async function getPunchesForWorkers(ids, start, end) {
+  const set = new Set(ids.map((i) => String(i).trim()));
+  const { rows } = await readTab(TABS.PUNCHES);
+  return rows.filter((p) => {
+    const d = stampDate(p.Timestamp);
+    return set.has(String(p.WorkerID).trim()) && d >= start && d <= end;
+  });
+}
+
+// Materials for a sub whose day falls within [start, end].
+export async function getMaterialsForSub(subId, start, end) {
+  const { rows } = await readTab(TABS.MATERIALS);
+  return rows.filter((m) => {
+    const d = stampDate(m.Timestamp);
+    return String(m.SubID).trim() === String(subId).trim() && d >= start && d <= end;
+  });
+}
+
 /* ----------------------------------------------------------- punch state */
 // Given all punch rows for one worker, decide current clock state.
 // Uses the latest punch by timestamp: an IN with no later OUT = still in.

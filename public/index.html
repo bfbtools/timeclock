@@ -77,6 +77,7 @@
         </button>
         <button class="linkbtn hidden" id="notYouBtn" data-i18n="notyou">Not you?</button>
         <div class="hint" id="hint" data-i18n="hint">Scanned at the jobsite • tap to start your day</div>
+        <button class="linkbtn" id="secondaryBtn" data-i18n="myhours">View my hours</button>
         <button class="linkbtn" id="fallbackBtn" data-i18n="notlisted">My name isn't here</button>
       </section>
 
@@ -139,6 +140,56 @@
         <div class="spacer"></div>
         <button class="clock-btn" id="fbSubmit"><span class="material-symbols-rounded">person_add</span><span data-i18n="fb_save">Continue &amp; set PIN</span></button>
         <button class="linkbtn" id="fbCancel" data-i18n="cancel">Cancel</button>
+      </section>
+
+      <!-- ============ VIEW: TIME LOG (employees) ============ -->
+      <section class="view" id="view-timelog">
+        <div class="sec-head">
+          <button class="backbtn" id="tlBack"><span class="material-symbols-rounded">chevron_left</span><span data-i18n="back">Back</span></button>
+        </div>
+        <div class="sec-title" id="tlTitle" data-i18n="tl_title">My time</div>
+        <div class="sec-sub" id="tlWeek">—</div>
+        <div class="locked-note hidden" id="tlLocked"><span class="material-symbols-rounded">lock</span><span data-i18n="tl_locked">Locked — the week closed Saturday</span></div>
+        <div class="tl-days" id="tlDays"></div>
+        <div class="tl-total"><span data-i18n="tl_total">Week total</span><span class="big" id="tlTotal">0h</span></div>
+        <div class="tl-flags" id="tlFlags"></div>
+        <div class="spacer"></div>
+        <button class="clock-btn" id="tlAdd"><span class="material-symbols-rounded">more_time</span><span data-i18n="tl_add">Add a missed punch</span></button>
+      </section>
+
+      <!-- ============ VIEW: ADD MISSED PUNCH ============ -->
+      <section class="view" id="view-addpunch">
+        <div class="sec-head">
+          <button class="backbtn" id="apBack"><span class="material-symbols-rounded">chevron_left</span><span data-i18n="back">Back</span></button>
+        </div>
+        <div class="sec-title" data-i18n="ap_title">Add a missed punch</div>
+        <div class="form-note" data-i18n="ap_note">This will be flagged as a manual entry for the office to review.</div>
+        <div class="field">
+          <label data-i18n="ap_which">Clock in or out?</label>
+          <div class="seg" id="apSeg">
+            <button type="button" data-act="IN" class="on" data-i18n="clockIn">Clock In</button>
+            <button type="button" data-act="OUT" data-i18n="clockOut">Clock Out</button>
+          </div>
+        </div>
+        <div class="field"><label data-i18n="ap_day">Day</label><select id="apDay"></select></div>
+        <div class="field"><label data-i18n="ap_time">Time</label><input type="time" id="apTime"></div>
+        <div class="spacer"></div>
+        <button class="clock-btn" id="apSubmit"><span class="material-symbols-rounded">check</span><span data-i18n="ap_save">Save punch</span></button>
+        <button class="linkbtn" id="apCancel" data-i18n="cancel">Cancel</button>
+      </section>
+
+      <!-- ============ VIEW: INVOICE DRAFT (owners / independents) ============ -->
+      <section class="view" id="view-invoice">
+        <div class="sec-head">
+          <button class="backbtn" id="invBack"><span class="material-symbols-rounded">chevron_left</span><span data-i18n="back">Back</span></button>
+        </div>
+        <div class="sec-title" id="invTitle" data-i18n="inv_title">Invoice draft</div>
+        <div class="inv-meta" id="invMeta"></div>
+        <div id="invLines"></div>
+        <div class="inv-total hidden" id="invTotalRow"><span class="lbl" data-i18n="inv_total">Total</span><span class="amt" id="invTotal">$0</span></div>
+        <div class="tl-flags" id="invFlags"></div>
+        <div class="spacer"></div>
+        <div class="hint" id="invHint" data-i18n="inv_hint">Draft • auto-sends midnight Saturday</div>
       </section>
 
     </div>
