@@ -8,4 +8,4 @@ The approved visual styling is `public/assets/BFB_TimeClock_ClockIn_Preview.html
 
 **Top guardrails:** do not modify any existing skills or unrelated files; the human runs all Google auth/deploys (you write code and commit to git, but don't authenticate or deploy on her behalf). No secrets in the repo — keys live in Netlify env vars only. No geolocation, no selfie capture.
 
-> This is the local code repo (`~/dev/bfb-timeclock`). The PM home (spec authoring, assets) lives in the Google Drive folder `05_Project Management/BFB Time Clock`. GitHub is the source of truth once pushed.
+> This is the local code repo (`~/BFB Time Clock`). The PM home (spec authoring, assets) lives in the Google Drive folder `05_Project Management/BFB Time Clock`. GitHub is the source of truth once pushed.
