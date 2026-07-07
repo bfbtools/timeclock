@@ -94,7 +94,7 @@ const API = {
   async punch(payload) {
     if (state.data?.demo) return { ok: true, at: new Date().toISOString() };
     try {
-      const r = await fetch('/api/punch', { method: 'POST', headers: json, body: JSON.stringify(payload) });
+      const r = await fetch('/api/punch', { method: 'POST', headers: json, body: JSON.stringify({ ...payload, site: state.site }) });
       return await r.json();
     } catch { return { ok: false, error: t('err') }; }
   },

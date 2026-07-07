@@ -25,9 +25,15 @@ bfb-timeclock/
 │   ├── assets/                 # approved design reference
 │   ├── css/  js/               # (front end, Build Step 2)
 ├── netlify/functions/          # serverless API
-│   ├── health.js               # GET /api/health — verifies Sheets connection
+│   ├── health.js               # GET  /api/health — verifies Sheets connection
+│   ├── site.js                 # GET  /api/site?site=QR — project + roster + subs
+│   ├── auth.js                 # POST /api/auth — verify / set a worker PIN
+│   ├── punch.js                # POST /api/punch — write an IN/OUT punch
+│   ├── worker.js               # POST /api/worker — "my name isn't here" fallback
 │   └── lib/
 │       ├── sheets.js           # Google Sheets read/write helper
+│       ├── model.js            # domain helpers (roster, punch state, ET time)
+│       ├── http.js             # JSON response / body helpers
 │       └── config.js           # tab names + business constants
 ├── docs/                       # spec + brand guidelines (reference copies)
 ├── netlify.toml                # build/functions/redirects config
@@ -53,6 +59,8 @@ in a local `.env` file (never committed) for `netlify dev`. See `.env.example`.
 2. **Google Cloud:** create a project → enable the **Google Sheets API** →
    create a **service account** → create & download a **JSON key**.
    **Share the Google Sheet with the service-account email as Editor.**
+   Also **add a `PendingReview` column to the Workers tab** — the
+   "my name isn't here" fallback writes `Y` there for new people you review.
 3. **Resend:** create an account → verify the **backforty.builders** domain
    (add the DNS records it gives you) → create an API key.
 4. **Netlify:** set the four env vars above → add custom domain
@@ -76,9 +84,9 @@ the message says what's wrong (missing env var, bad JSON, or Sheet not shared).
 
 ## Build order (per spec)
 
-1. ✅ Scaffold + Netlify config + Sheets read/write helper.  ← **current**
-2. ⬜ Front end from the approved preview.
-3. ⬜ Rollup engine (pairing, hours, lunch, Carlito, Mon–Sat).
+1. ✅ Scaffold + Netlify config + Sheets read/write helper.
+2. ✅ Front end from the approved preview + API functions (site/auth/punch/worker).
+3. ⬜ Rollup engine (pairing, hours, lunch, Carlito, Mon–Sat).  ← **next**
 4. ⬜ Employee Time Log + Subcontractor Invoice Draft.
 5. ⬜ Invoicing (independent auto-send, company toggle, QB + GC drafts).
 6. ⬜ Materials capture + Drive receipt upload; RateLog + change email.
