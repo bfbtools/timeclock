@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "netlify dev",
+    "test": "node --test",
     "build": "echo \"Static site — no build step\" && exit 0"
   },
   "dependencies": {
