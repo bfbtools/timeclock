@@ -19,10 +19,14 @@ export const LUNCH_HOURS = 0.75; // deducted only on the GC invoice, per worker 
 export const DEFAULT_COMPANY_RATE = 50; // company-sub default pay rate ($/hr)
 export const QB_RATE = 50; // QB "Carpentry" invoice rate ($/hr)
 
-// Week is Monday–Saturday (no Sundays). 1 = Monday per JS getDay()? No —
-// JS Date.getDay(): 0=Sun … 6=Sat. Week starts Monday(1), ends Saturday(6).
+// Week starts Monday. JS Date.getDay(): 0=Sun … 6=Sat.
 export const WEEK_START_DOW = 1; // Monday
-export const WEEK_END_DOW = 6; // Saturday
+// How many days the billing week spans, starting Monday.
+//   6 = Monday–Saturday (spec default, no Sundays)
+//   7 = Monday–Sunday   (flip to this to start counting Sunday hours)
+// Sunday punches are ALWAYS flagged for review; this only controls whether
+// their hours are counted/paid in the week.
+export const WEEK_LENGTH_DAYS = 6;
 
 // Cost-code references (for GC/QB invoice notes).
 export const COST_CODE_GC = '01 31 00';

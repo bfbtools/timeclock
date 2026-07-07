@@ -12,7 +12,7 @@
 //
 // Timestamps are ET wall-clock strings "YYYY-MM-DD HH:mm:ss" (see model.js).
 
-import { LUNCH_HOURS, DEFAULT_COMPANY_RATE } from './config.js';
+import { LUNCH_HOURS, DEFAULT_COMPANY_RATE, WEEK_LENGTH_DAYS } from './config.js';
 
 /* --------------------------------------------------------------- numbers */
 // Parse a Sheet cell that may be "50", "$50.00", "" etc. → number (NaN-safe).
@@ -55,16 +55,17 @@ export function mondayOf(dateStr) {
   d.setDate(d.getDate() - delta);
   return isoDate(d);
 }
-// { start: Monday, end: Saturday } for the week containing dateStr.
+// { start: Monday, end: last billing day } for the week containing dateStr.
+// Span is WEEK_LENGTH_DAYS (6 = Mon–Sat by default).
 export function weekRange(dateStr) {
   const start = mondayOf(dateStr);
   const end = new Date(start + 'T00:00:00');
-  end.setDate(end.getDate() + 5); // Mon + 5 = Sat
+  end.setDate(end.getDate() + (WEEK_LENGTH_DAYS - 1));
   return { start, end: isoDate(end) };
 }
 export function inWeek(dateStr, weekStartMonday) {
   const end = new Date(weekStartMonday + 'T00:00:00');
-  end.setDate(end.getDate() + 5);
+  end.setDate(end.getDate() + (WEEK_LENGTH_DAYS - 1));
   return dateStr >= weekStartMonday && dateStr <= isoDate(end);
 }
 
@@ -176,10 +177,20 @@ export function summarizeWorkerWeek({ worker, sub, punches, weekStartMonday }) {
   const flags = [];
 
   for (const date of Object.keys(allDays).sort()) {
-    if (week && !inWeek(date, week)) continue;
     const d = allDays[date];
-    if (d.sunday) flags.push({ date, reason: 'punch on Sunday (week is Mon–Sat)' });
-    weekMinutes += d.intervals.reduce((s, i) => s + i.minutes, 0);
+    const dayMinutes = d.intervals.reduce((s, i) => s + i.minutes, 0);
+
+    if (week && !inWeek(date, week)) {
+      // A Sunday belonging to this week's Monday-anchored span is outside the
+      // Mon–Sat billing window. Never drop it silently — surface it for review.
+      if (mondayOf(date) === week && d.sunday && (dayMinutes > 0 || d.unpaired.length)) {
+        flags.push({ date, reason: 'worked Sunday — outside the Mon–Sat week; not counted, please review' });
+      }
+      continue;
+    }
+
+    if (d.sunday) flags.push({ date, reason: 'Sunday counted in week (Sundays are enabled)' });
+    weekMinutes += dayMinutes;
     unpairedCount += d.unpaired.length;
     d.unpaired.forEach((u) => flags.push({ date, reason: u.reason }));
     days.push(d);
