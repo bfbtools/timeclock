@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Secrets & local env — NEVER commit these
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+service-account*.json
+google-service-account*.json
+
+# Netlify
+.netlify/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*

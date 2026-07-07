@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BFB Time Clock — Clock In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Libre+Franklin:wght@400;500;600;700&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500,0,0&display=block">
+<style>
+  :root{
+    /* pulled from BFB Semantic variables (Light mode) */
+    --ember:#db563d; --ember-hover:#bb4832; --ember-disabled:#eeb6ab;
+    --pine:#2e5e4e; --brass:#db942c; --forge:#2d2e28; --kraft:#d6b07b;
+    --paper:#f7f0e6;        /* bg/secondary */
+    --surface:#ffffff;      /* surface/default */
+    --line:#efe0ca;         /* border/default */
+    --line-strong:#d6b07b;  /* border/strong */
+    --ink:#3b3830;          /* text/primary */
+    --ink-body:#58524a;     /* text/body */
+    --ink-soft:#6b6459;     /* text/secondary */
+    --placeholder:#b8b0a4;  /* text/placeholder */
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{font-family:'Libre Franklin',sans-serif;background:#34332c;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+  .screen{width:402px;max-width:100%;min-height:780px;background:var(--paper);
+    border-radius:32px;overflow:hidden;position:relative;display:flex;flex-direction:column;
+    box-shadow:0 30px 70px rgba(0,0,0,0.45);}
+
+  .topbar{background:var(--forge);color:var(--paper);padding:18px 22px 16px;
+    display:flex;align-items:flex-start;justify-content:space-between;position:relative;}
+  .topbar::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;
+    background:linear-gradient(90deg,var(--ember) 0 40%,var(--brass) 40% 70%,var(--pine) 70% 100%);}
+  .wordmark .l1{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:27px;letter-spacing:0.5px;}
+  .wordmark .l2{font-weight:700;font-size:11px;letter-spacing:4px;color:var(--kraft);margin-top:3px;}
+  .lang{display:flex;border:1px solid rgba(255,255,255,0.25);border-radius:8px;overflow:hidden;}
+  .lang button{background:transparent;color:rgba(255,255,255,0.55);border:0;padding:6px 11px;
+    font-family:inherit;font-weight:700;font-size:11px;letter-spacing:1px;cursor:pointer;}
+  .lang button.on{background:var(--ember);color:#fff;}
+
+  .body{flex:1;display:flex;flex-direction:column;padding:22px 22px 18px;}
+  .jobsite{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:15px 16px;
+    display:flex;align-items:center;gap:13px;}
+  .jobsite .pin{width:44px;height:44px;flex:0 0 44px;border-radius:8px;background:var(--pine);color:#fff;
+    display:flex;align-items:center;justify-content:center;}
+  .jobsite .pin .material-symbols-rounded{font-size:26px;}
+  .jobsite .label{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--pine);text-transform:uppercase;}
+  .jobsite .name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:26px;line-height:1;margin-top:3px;color:var(--ink);}
+
+  .clock{text-align:center;padding:34px 0 48px;}
+  .clockwrap{display:block;width:100%;text-align:left;}
+  .flipclock{display:flex;width:100%;align-items:center;justify-content:flex-start;gap:14px;}
+  .flipcard{position:relative;flex:1 1 auto;height:106px;perspective:650px;}
+  .flipcard .leaf{position:absolute;left:0;width:100%;height:50%;overflow:hidden;box-sizing:border-box;
+    background:var(--surface);border:2px solid var(--ink);display:flex;justify-content:center;backface-visibility:hidden;}
+  .flipcard .leaf span{font-family:'Roboto Mono',monospace;font-weight:700;font-size:78px;line-height:106px;color:var(--ink);}
+  .flipcard .top{top:0;align-items:flex-start;border-radius:11px 11px 0 0;border-bottom:1px solid var(--ink);}
+  .flipcard .bottom{bottom:0;align-items:flex-end;border-radius:0 0 11px 11px;border-top:1px solid var(--ink);}
+  .flipcard .s-top,.flipcard .s-bot{z-index:1;}
+  .flipcard .f-top{z-index:3;transform-origin:center bottom;}
+  .flipcard .f-bot{z-index:3;transform-origin:center top;transform:rotateX(90deg);}
+  .flipampm{flex:0 0 auto;font-family:'Libre Franklin',sans-serif;font-weight:700;font-size:28px;letter-spacing:1px;line-height:1.7;color:var(--ink-soft);text-align:center;}
+  .clock .date{margin-top:13px;font-weight:600;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink-soft);text-align:left;}
+
+  .ident-label{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--ink-soft);margin:2px 2px 9px;}
+  .select-wrap{position:relative;}
+  .select-wrap .lead{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:var(--pine);pointer-events:none;}
+  .select-wrap .chev{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--ink-soft);pointer-events:none;}
+  select{-webkit-appearance:none;appearance:none;width:100%;font-family:'Libre Franklin',sans-serif;font-weight:600;font-size:18px;color:var(--ink);
+    background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:18px 46px 18px 50px;cursor:pointer;}
+  select:focus{outline:none;border-color:var(--line-strong);}
+  select.empty{color:var(--placeholder);font-weight:500;}
+
+  .spacer{flex:1;min-height:18px;}
+
+  .clock-btn{width:100%;border:0;border-radius:8px;cursor:pointer;background:var(--ember);color:#fff;
+    font-family:'Libre Franklin',sans-serif;font-weight:700;font-size:15px;letter-spacing:1.8px;text-transform:uppercase;
+    padding:22px;display:flex;align-items:center;justify-content:center;gap:11px;transition:background .12s ease,transform .05s ease;}
+  .clock-btn .material-symbols-rounded{font-size:22px;}
+  .clock-btn:active{background:var(--ember-hover);transform:scale(0.99);}
+  .clock-btn:disabled{background:var(--ember-disabled);color:#fff;cursor:not-allowed;}
+  .hint{text-align:center;font-size:12px;color:var(--ink-soft);margin-top:12px;font-weight:500;}
+
+  .confirm{position:absolute;inset:0;background:var(--pine);color:#fff;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:30px;opacity:0;visibility:hidden;transition:opacity .25s ease;z-index:5;}
+  .confirm.show{opacity:1;visibility:visible;}
+  .confirm .ring{width:118px;height:118px;border-radius:50%;background:rgba(255,255,255,0.14);
+    display:flex;align-items:center;justify-content:center;margin-bottom:26px;position:relative;}
+  .confirm.show .ring{animation:pop .5s cubic-bezier(.2,.9,.3,1.3) both;}
+  .confirm.show .ring::before{content:"";position:absolute;inset:-10px;border-radius:50%;border:3px solid rgba(255,255,255,0.4);animation:pulse 1s ease-out .15s 2;}
+  .confirm .ring .material-symbols-rounded{font-size:70px;}
+  .confirm.show .ring .material-symbols-rounded{animation:check .45s ease .18s both;}
+  .confirm .status{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:42px;letter-spacing:1px;line-height:0.95;text-align:center;}
+  .confirm.show .status{animation:rise .4s ease .12s both;}
+  .confirm .who{margin-top:12px;font-weight:600;font-size:16px;letter-spacing:1px;text-transform:uppercase;color:var(--kraft);}
+  .confirm.show .who{animation:rise .4s ease .2s both;}
+  .confirm .stamp{margin-top:26px;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:46px;letter-spacing:1px;font-variant-numeric:tabular-nums;line-height:0.9;}
+  .confirm.show .stamp{animation:rise .4s ease .28s both;}
+  .confirm .stamp-label{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.6);margin-top:7px;}
+  .confirm .reset{margin-top:34px;background:transparent;border:1.5px solid rgba(255,255,255,0.4);color:#fff;
+    font-family:'Libre Franklin';font-weight:600;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;padding:11px 20px;border-radius:8px;cursor:pointer;}
+  @keyframes pop{0%{transform:scale(0);}100%{transform:scale(1);}}
+  @keyframes pulse{0%{transform:scale(.85);opacity:.7;}100%{transform:scale(1.25);opacity:0;}}
+  @keyframes check{0%{transform:scale(0) rotate(-15deg);opacity:0;}100%{transform:scale(1) rotate(0);opacity:1;}}
+  @keyframes rise{0%{transform:translateY(14px);opacity:0;}100%{transform:translateY(0);opacity:1;}}
+</style>
+</head>
+<body>
+  <div class="screen">
+    <div class="topbar">
+      <div class="wordmark"><div class="l1">BACK FORTY</div><div class="l2">BUILDERS</div></div>
+      <div class="lang">
+        <button id="en" class="on" onclick="setLang('en')">EN</button>
+        <button id="es" onclick="setLang('es')">ES</button>
+      </div>
+    </div>
+    <div class="body">
+      <div class="jobsite">
+        <div class="pin"><span class="material-symbols-rounded">distance</span></div>
+        <div><div class="label" id="joblabel">Jobsite</div><div class="name">French Hill Rd — Bldg 1</div></div>
+      </div>
+      <div class="clock">
+        <div class="clockwrap">
+          <div class="flipclock" onclick="demoFlip()" style="cursor:pointer" title="Tap to flip (demo)">
+            <div class="flipcard" id="hh" data-v="07">
+              <div class="leaf top s-top"><span>07</span></div>
+              <div class="leaf bottom s-bot"><span>07</span></div>
+              <div class="leaf top f-top"><span>07</span></div>
+              <div class="leaf bottom f-bot"><span>07</span></div>
+            </div>
+            <div class="flipcard" id="mm" data-v="32">
+              <div class="leaf top s-top"><span>32</span></div>
+              <div class="leaf bottom s-bot"><span>32</span></div>
+              <div class="leaf top f-top"><span>32</span></div>
+              <div class="leaf bottom f-bot"><span>32</span></div>
+            </div>
+            <div class="flipampm" id="ampm">A<br>M</div>
+          </div>
+          <div class="date" id="date">Thursday, June 4</div>
+        </div>
+      </div>
+      <div class="ident-label" id="identlabel">Who are you?</div>
+      <div class="select-wrap">
+        <span class="material-symbols-rounded lead">person</span>
+        <span class="material-symbols-rounded chev">expand_more</span>
+        <select id="who" class="empty" onchange="onPick(this)">
+          <option value="" id="ph" selected disabled>Select your name</option>
+          <option>Fredy — San Ignacio</option>
+          <option>Carlos — San Ignacio</option>
+          <option>Carlito — San Ignacio</option>
+          <option>Elman — SnowPeak</option>
+          <option>San Andres — San Ignacio</option>
+        </select>
+      </div>
+      <div class="spacer"></div>
+      <button class="clock-btn" id="btn" disabled onclick="clockIn()">
+        <span class="material-symbols-rounded">schedule</span>
+        <span id="btnlabel">Select your name</span>
+      </button>
+      <div class="hint" id="hint">Scanned at the jobsite • tap to start your day</div>
+    </div>
+    <div class="confirm" id="confirm">
+      <div class="ring"><span class="material-symbols-rounded">check</span></div>
+      <div class="status" id="cstatus">YOU'RE<br>CLOCKED IN</div>
+      <div class="who" id="cwho">Fredy</div>
+      <div class="stamp" id="cstamp">7:32 AM</div>
+      <div class="stamp-label" id="cdate">Thursday, June 4</div>
+      <button class="reset" id="resetbtn" onclick="reset()">Demo: reset</button>
+    </div>
+  </div>
+<script>
+  var I={
+    en:{job:'Jobsite',who:'Who are you?',sel:'Select your name',cin:'Clock In',
+        hint:'Scanned at the jobsite • tap to start your day',status:"YOU'RE<br>CLOCKED IN",reset:'Demo: reset',loc:'en-US'},
+    es:{job:'Obra',who:'¿Quién eres?',sel:'Selecciona tu nombre',cin:'Marcar Entrada',
+        hint:'Escaneado en la obra • toca para empezar',status:'ENTRADA<br>REGISTRADA',reset:'Demo: reiniciar',loc:'es'}
+  };
+  var lang='en';
+  var paused=false;
+  function demoFlip(){if(paused)return;paused=true;var mm=document.getElementById('mm');var v=(parseInt(mm.getAttribute('data-v'),10)+1)%60;flip(mm,v<10?'0'+v:''+v);setTimeout(function(){paused=false;},1700);}
+  function pad(n){return n<10?'0'+n:n;}
+  function fmt(d){var h=d.getHours(),m=d.getMinutes();var ap=h>=12?'PM':'AM';var hh=h%12;if(hh===0)hh=12;return {t:hh+':'+pad(m),ap:ap};}
+  function picked(){return document.getElementById('who').value;}
+  function flip(card,val){
+    if(card.getAttribute('data-v')===val) return;
+    var old=card.getAttribute('data-v'); card.setAttribute('data-v',val);
+    var sTop=card.querySelector('.s-top span'), sBot=card.querySelector('.s-bot span');
+    var fTop=card.querySelector('.f-top'), fBot=card.querySelector('.f-bot');
+    var fTopS=fTop.querySelector('span'), fBotS=fBot.querySelector('span');
+    fTopS.textContent=old; fBotS.textContent=val;
+    sTop.textContent=val; sBot.textContent=old;
+    fTop.style.transition='none'; fTop.style.transform='rotateX(0deg)';
+    fBot.style.transition='none'; fBot.style.transform='rotateX(90deg)';
+    void card.offsetWidth;
+    fTop.style.transition='transform .26s ease-in';
+    fTop.style.transform='rotateX(-90deg)';
+    setTimeout(function(){ fBot.style.transition='transform .26s ease-out'; fBot.style.transform='rotateX(0deg)'; },260);
+    setTimeout(function(){
+      sBot.textContent=val;
+      fTop.style.transition='none'; fTop.style.transform='rotateX(0deg)'; fTopS.textContent=val;
+      fBot.style.transition='none'; fBot.style.transform='rotateX(90deg)';
+    },540);
+  }
+  function tick(){if(paused)return;var d=new Date();var h=d.getHours(),m=d.getMinutes();var ap=h>=12?'PM':'AM';var hh=h%12;if(hh===0)hh=12;
+    flip(document.getElementById('hh'),(hh<10?'0'+hh:''+hh));
+    flip(document.getElementById('mm'),(m<10?'0'+m:''+m));
+    document.getElementById('ampm').innerHTML=ap.charAt(0)+'<br>'+ap.charAt(1);
+    document.getElementById('date').textContent=d.toLocaleDateString(I[lang].loc,{weekday:'long',month:'long',day:'numeric'});}
+  function render(){
+    var t=I[lang];
+    document.getElementById('en').classList.toggle('on',lang==='en');
+    document.getElementById('es').classList.toggle('on',lang==='es');
+    document.getElementById('joblabel').textContent=t.job;
+    document.getElementById('identlabel').textContent=t.who;
+    document.getElementById('ph').textContent=t.sel;
+    document.getElementById('btnlabel').textContent=picked()?t.cin:t.sel;
+    document.getElementById('hint').textContent=t.hint;
+    document.getElementById('cstatus').innerHTML=t.status;
+    document.getElementById('resetbtn').textContent=t.reset;
+    tick();
+  }
+  function setLang(l){lang=l;render();}
+  function onPick(sel){var btn=document.getElementById('btn');if(sel.value){sel.classList.remove('empty');btn.disabled=false;document.getElementById('btnlabel').textContent=I[lang].cin;}}
+  function clockIn(){var sel=document.getElementById('who');var name=sel.value.split(' — ')[0];var d=new Date();var f=fmt(d);
+    document.getElementById('cwho').textContent=name;document.getElementById('cstamp').textContent=f.t+' '+f.ap;
+    document.getElementById('cdate').textContent=d.toLocaleDateString(I[lang].loc,{weekday:'long',month:'long',day:'numeric'});
+    document.getElementById('confirm').classList.add('show');}
+  function reset(){document.getElementById('confirm').classList.remove('show');var sel=document.getElementById('who');sel.selectedIndex=0;sel.classList.add('empty');document.getElementById('btn').disabled=true;document.getElementById('btnlabel').textContent=I[lang].sel;}
+  tick();setInterval(tick,1000);
+</script>
+</body>
+</html>

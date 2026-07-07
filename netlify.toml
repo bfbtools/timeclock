@@ -1,0 +1,23 @@
+# Netlify configuration — Back Forty Builders Time Clock
+# Static front end in /public, serverless API in /netlify/functions.
+
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+  command = "npm run build"
+
+[functions]
+  # Bundle the shared lib + node deps with each function.
+  node_bundler = "esbuild"
+
+# Friendly path: /api/* -> the matching function (e.g. /api/health -> health.js)
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# Scheduled invoicing — runs at 00:00 (function reads TZ and guards to Sat-night/America/New_York).
+# NOTE: Netlify cron is UTC. The Saturday-midnight ET run is enforced inside the function,
+# not by this schedule; the schedule just wakes it up. Wired up in Build Step 5.
+# [functions."invoice-run"]
+#   schedule = "@daily"

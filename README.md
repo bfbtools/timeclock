@@ -1,0 +1,93 @@
+# Back Forty Builders — Subcontractor Time Clock
+
+QR-launched web app that lets **subcontractors** clock in/out on jobsites.
+Punches land in a Google Sheet that auto-computes hours and generates weekly
+invoices. (BFB employees use Buildertrend — this app is for subs only.)
+
+Full spec: [`docs/bfb-timeclock-spec.md`](docs/bfb-timeclock-spec.md) ·
+Brand: [`docs/bfb-brand-guidelines.md`](docs/bfb-brand-guidelines.md) ·
+Approved UI: [`public/assets/BFB_TimeClock_ClockIn_Preview.html`](public/assets/BFB_TimeClock_ClockIn_Preview.html)
+
+## Stack
+
+- **Front end:** static HTML/CSS/JS in `public/`, hosted on Netlify at `timeclock.backforty.builders`.
+- **Backend:** Netlify Functions (Node 20, ESM) in `netlify/functions/`.
+- **Datastore:** Google Sheet (`SHEET_ID`) via the Sheets API v4 + a service account.
+- **Email:** Resend (from `accounting@backforty.builders`).
+- **Scheduled invoicing:** a Netlify Scheduled Function (wired in Build Step 5).
+
+## Repo layout
+
+```
+bfb-timeclock/
+├── public/                     # static site (Netlify publish dir)
+│   ├── index.html              # placeholder — real UI lands in Build Step 2
+│   ├── assets/                 # approved design reference
+│   ├── css/  js/               # (front end, Build Step 2)
+├── netlify/functions/          # serverless API
+│   ├── health.js               # GET /api/health — verifies Sheets connection
+│   └── lib/
+│       ├── sheets.js           # Google Sheets read/write helper
+│       └── config.js           # tab names + business constants
+├── docs/                       # spec + brand guidelines (reference copies)
+├── netlify.toml                # build/functions/redirects config
+├── .env.example                # env-var template (copy to .env for local dev)
+└── package.json
+```
+
+## Environment variables
+
+Set these in **Netlify → Site settings → Environment variables** (production) and
+in a local `.env` file (never committed) for `netlify dev`. See `.env.example`.
+
+| Variable | What it is |
+|---|---|
+| `GOOGLE_SERVICE_ACCOUNT` | Full service-account JSON key, as a single value. |
+| `SHEET_ID` | The datastore Sheet ID (`1CAVJjOG…MbPJfc`). |
+| `RESEND_API_KEY` | Resend API key (domain `backforty.builders` verified). |
+| `ACCOUNTING_EMAIL` | `accounting@backforty.builders` (from/copy address). |
+
+## Setup steps (Adrienne runs these — code is scaffolded, you do the cloud/auth)
+
+1. **GitHub:** create a repo, push this project, connect it to Netlify.
+2. **Google Cloud:** create a project → enable the **Google Sheets API** →
+   create a **service account** → create & download a **JSON key**.
+   **Share the Google Sheet with the service-account email as Editor.**
+3. **Resend:** create an account → verify the **backforty.builders** domain
+   (add the DNS records it gives you) → create an API key.
+4. **Netlify:** set the four env vars above → add custom domain
+   **timeclock.backforty.builders** (one CNAME in DNS).
+5. **QR codes:** one per site → `https://timeclock.backforty.builders/?site=<QRParam>`
+   (`QRParam` is in the Projects tab).
+
+> Drive/receipt upload uses the same service account (Build Step 6); no extra
+> key needed, but the target Drive folder must be shared with it as Editor.
+
+## Verify the backend (do this after step 2 + local `.env`)
+
+```bash
+npm install
+npm run dev          # netlify dev — serves the site + functions locally
+# then open http://localhost:8888/api/health
+```
+
+A healthy response lists row counts for Subs / Workers / Projects. If it errors,
+the message says what's wrong (missing env var, bad JSON, or Sheet not shared).
+
+## Build order (per spec)
+
+1. ✅ Scaffold + Netlify config + Sheets read/write helper.  ← **current**
+2. ⬜ Front end from the approved preview.
+3. ⬜ Rollup engine (pairing, hours, lunch, Carlito, Mon–Sat).
+4. ⬜ Employee Time Log + Subcontractor Invoice Draft.
+5. ⬜ Invoicing (independent auto-send, company toggle, QB + GC drafts).
+6. ⬜ Materials capture + Drive receipt upload; RateLog + change email.
+
+## Guardrails
+
+- Standalone build — nothing outside this repo is touched.
+- **Adrienne** does all Google/Netlify/Resend/DNS/deploy/auth actions.
+- **No secrets in the repo** — keys live in env vars only.
+- **No geolocation, no selfie/photo-of-person capture.**
+- Onboarding is backend (edit the Sheet); the only in-app path is the
+  "My name isn't here" fallback.

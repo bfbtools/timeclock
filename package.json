@@ -1,0 +1,21 @@
+{
+  "name": "bfb-timeclock",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Back Forty Builders subcontractor time-clock web app (Netlify + Google Sheets).",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo \"Static site — no build step\" && exit 0"
+  },
+  "dependencies": {
+    "googleapis": "^144.0.0",
+    "resend": "^4.0.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  }
+}
