@@ -135,7 +135,7 @@ export async function createFallbackWorker({ first, last, subId }) {
     PayRateOverride: '',     // inherits the sub's default rate — never self-set
     GCRateOverride: '',
     Active: 'Y',
-    PendingReview: 'Y',      // office reviews before it counts as confirmed
+    'Pending Review': 'Y',   // office reviews before it counts as confirmed
   };
   await appendRow(TABS.WORKERS, row);
   return row;
