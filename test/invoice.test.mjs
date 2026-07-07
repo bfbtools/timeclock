@@ -1,7 +1,7 @@
 // Unit tests for the sub-invoice builder. Run: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSubInvoice } from '../netlify/functions/lib/invoice-lib.js';
+import { buildSubInvoice, buildGCInvoice, buildQBInvoice } from '../netlify/functions/lib/invoice-lib.js';
 
 const P = (ts, action, project, worker = 'W1') =>
   ({ Timestamp: ts, Action: action, Project: project, WorkerID: worker });
@@ -60,4 +60,48 @@ test('company sub: per-worker rates (Carlito $35) aggregate by project', () => {
   const carlito = inv.workerLines.find((l) => l.worker === 'Carlito');
   assert.equal(carlito.rate, 35);
   assert.equal(carlito.amount, 350);
+});
+
+test('GC invoice: $68 rate, 0.75 lunch/day deducted, Carlito separated @ $40', () => {
+  const gcProjects = [{ ProjectID: 'OPUS1', SiteName: 'French 1', BillsToGC: 'Y', GCName: 'Opus', GCRate: '68' }];
+  const workersById = {
+    W1: { WorkerID: 'W1', First: 'Fredy' },                       // standard → $68
+    WC: { WorkerID: 'WC', First: 'Carlito', GCRateOverride: '40' }, // override → $40
+  };
+  const punches = [
+    P('2026-07-06 07:00:00', 'IN', 'OPUS1', 'W1'), P('2026-07-06 15:00:00', 'OUT', 'OPUS1', 'W1'), // Fredy 8h → 7.25 billable
+    P('2026-07-06 07:00:00', 'IN', 'OPUS1', 'WC'), P('2026-07-06 15:00:00', 'OUT', 'OPUS1', 'WC'), // Carlito 8h → 7.25 billable
+  ];
+  const gc = buildGCInvoice({ gcName: 'Opus', gcProjects, workersById, punches, weekStart: '2026-07-06' });
+  assert.equal(gc.costCode, '01 31 00');
+  assert.equal(gc.lunchHours, 1.5); // 0.75 × 2 workers
+  const proj = gc.projects[0];
+  assert.equal(proj.standard.hours, 7.25);
+  assert.equal(proj.standard.rate, 68);
+  assert.equal(proj.standard.amount, 493);     // 7.25 × 68
+  assert.equal(proj.overrides.length, 1);
+  assert.equal(proj.overrides[0].worker, 'Carlito');
+  assert.equal(proj.overrides[0].rate, 40);
+  assert.equal(proj.overrides[0].amount, 290); // 7.25 × 40
+  assert.equal(gc.total, 783);                 // 493 + 290
+});
+
+test('GC invoice: lunch never makes a short day negative', () => {
+  const gcProjects = [{ ProjectID: 'OPUS1', SiteName: 'French 1', GCRate: '68' }];
+  const workersById = { W1: { WorkerID: 'W1', First: 'Fredy' } };
+  const punches = [P('2026-07-06 07:00:00', 'IN', 'OPUS1', 'W1'), P('2026-07-06 07:30:00', 'OUT', 'OPUS1', 'W1')]; // 0.5h
+  const gc = buildGCInvoice({ gcName: 'Opus', gcProjects, workersById, punches, weekStart: '2026-07-06' });
+  assert.equal(gc.projects[0]?.standard?.hours ?? 0, 0); // 0.5 − 0.75 → 0, not negative
+  assert.equal(gc.total, 0);
+});
+
+test('QB invoice: flat $50/hr Carpentry, no lunch deduction', () => {
+  const sub = { SubID: 'SANIG', CompanyName: 'San Ignacio', DefaultPayRate: '50' };
+  const workers = [{ WorkerID: 'W1', First: 'Fredy', SubID: 'SANIG' }];
+  const punches = [P('2026-07-06 07:00:00', 'IN', 'PRJ_A', 'W1'), P('2026-07-06 15:00:00', 'OUT', 'PRJ_A', 'W1')]; // 8h
+  const qb = buildQBInvoice({ sub, workers, punches, weekStart: '2026-07-06' });
+  assert.equal(qb.item, 'Carpentry');
+  assert.equal(qb.rate, 50);
+  assert.equal(qb.hours, 8);       // full 8h, no lunch
+  assert.equal(qb.total, 400);
 });

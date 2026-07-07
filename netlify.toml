@@ -16,8 +16,8 @@
   to = "/.netlify/functions/:splat"
   status = 200
 
-# Scheduled invoicing — runs at 00:00 (function reads TZ and guards to Sat-night/America/New_York).
-# NOTE: Netlify cron is UTC. The Saturday-midnight ET run is enforced inside the function,
-# not by this schedule; the schedule just wakes it up. Wired up in Build Step 5.
-# [functions."invoice-run"]
-#   schedule = "@daily"
+# Scheduled invoicing: the Saturday-midnight run. Its cron schedule is declared
+# inside the function (netlify/functions/invoice-run.js →
+# `export const config = { schedule: "0 6 * * 0" }`, Sunday early-UTC). The
+# function guards to Sunday ET and is idempotent via InvoiceLog, so nothing is
+# needed here.
