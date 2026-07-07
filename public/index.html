@@ -189,7 +189,36 @@
         <div class="inv-total hidden" id="invTotalRow"><span class="lbl" data-i18n="inv_total">Total</span><span class="amt" id="invTotal">$0</span></div>
         <div class="tl-flags" id="invFlags"></div>
         <div class="spacer"></div>
+        <button class="linkbtn" id="invRateBtn" data-i18n="changeRate">Change my pay rate</button>
         <div class="hint" id="invHint" data-i18n="inv_hint">Draft • auto-sends midnight Saturday</div>
+      </section>
+
+      <!-- ============ VIEW: MATERIALS (owner clock-out) ============ -->
+      <section class="view" id="view-materials">
+        <div class="sec-head">
+          <button class="backbtn" id="matBack"><span class="material-symbols-rounded">chevron_left</span><span data-i18n="back">Back</span></button>
+        </div>
+        <div class="sec-title" data-i18n="mat_title">Materials?</div>
+        <div class="form-note" data-i18n="mat_note">Bought materials for this job today? Add them here. Optional.</div>
+        <div class="field"><label data-i18n="mat_amount">Amount ($)</label><input type="number" id="matAmount" inputmode="decimal" placeholder="0.00"></div>
+        <div class="field"><label data-i18n="mat_noteL">Note (optional)</label><input type="text" id="matNote" autocomplete="off"></div>
+        <div class="field"><label data-i18n="mat_receipt">Receipt photo (optional)</label><input type="file" id="matReceipt" accept="image/*" capture="environment"></div>
+        <div class="spacer"></div>
+        <button class="clock-btn out" id="matSave"><span class="material-symbols-rounded">receipt_long</span><span data-i18n="mat_save">Save &amp; clock out</span></button>
+        <button class="linkbtn" id="matSkip" data-i18n="mat_skip">Skip &amp; clock out</button>
+      </section>
+
+      <!-- ============ VIEW: CHANGE PAY RATE (owner/independent) ============ -->
+      <section class="view" id="view-rate">
+        <div class="sec-head">
+          <button class="backbtn" id="rateBack"><span class="material-symbols-rounded">chevron_left</span><span data-i18n="back">Back</span></button>
+        </div>
+        <div class="sec-title" data-i18n="rate_title">Your pay rate</div>
+        <div class="form-note" data-i18n="rate_note">What BFB pays you per hour. Changes are logged and the office is notified.</div>
+        <div class="field"><label data-i18n="rate_new">New rate ($/hr)</label><input type="number" id="rateInput" inputmode="decimal" placeholder="0.00"></div>
+        <div class="spacer"></div>
+        <button class="clock-btn" id="rateSave"><span class="material-symbols-rounded">payments</span><span data-i18n="rate_save">Save rate</span></button>
+        <button class="linkbtn" id="rateCancel" data-i18n="cancel">Cancel</button>
       </section>
 
     </div>

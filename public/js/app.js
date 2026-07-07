@@ -32,6 +32,13 @@ const I = {
     inv_title: 'Invoice draft', inv_total: 'Total', inv_hint: 'Draft • auto-sends midnight Saturday',
     invEmpty: 'No hours logged this week yet.', pickFirst: 'Pick your name first.',
     apMissing: 'Pick a day and time.', locale: 'en-US',
+    mat_title: 'Materials?', mat_note: 'Bought materials for this job today? Add them here. Optional.',
+    mat_amount: 'Amount ($)', mat_noteL: 'Note (optional)', mat_receipt: 'Receipt photo (optional)',
+    mat_save: 'Save & clock out', mat_skip: 'Skip & clock out',
+    changeRate: 'Change my pay rate', rate_title: 'Your pay rate',
+    rate_note: 'What BFB pays you per hour. Changes are logged and the office is notified.',
+    rate_new: 'New rate ($/hr)', rate_save: 'Save rate', rateSaved: 'Rate updated.',
+    rateBad: 'Enter a valid rate.',
     err: 'Something went wrong. Try again.', errName: 'Enter your first and last name.',
     errSub: 'Pick your company.', noSite: 'No jobsite in the link. Scan the QR at the site.',
   },
@@ -61,6 +68,13 @@ const I = {
     inv_title: 'Borrador de factura', inv_total: 'Total', inv_hint: 'Borrador • se envía el sábado a medianoche',
     invEmpty: 'Aún no hay horas esta semana.', pickFirst: 'Selecciona tu nombre primero.',
     apMissing: 'Selecciona día y hora.', locale: 'es',
+    mat_title: '¿Materiales?', mat_note: '¿Compraste materiales para esta obra hoy? Agrégalos aquí. Opcional.',
+    mat_amount: 'Monto ($)', mat_noteL: 'Nota (opcional)', mat_receipt: 'Foto del recibo (opcional)',
+    mat_save: 'Guardar y marcar salida', mat_skip: 'Omitir y marcar salida',
+    changeRate: 'Cambiar mi tarifa', rate_title: 'Tu tarifa',
+    rate_note: 'Lo que BFB te paga por hora. Los cambios se registran y se notifica a la oficina.',
+    rate_new: 'Nueva tarifa ($/hr)', rate_save: 'Guardar tarifa', rateSaved: 'Tarifa actualizada.',
+    rateBad: 'Ingresa una tarifa válida.',
     err: 'Algo salió mal. Inténtalo de nuevo.', errName: 'Escribe tu nombre y apellido.',
     errSub: 'Selecciona tu compañía.', noSite: 'No hay obra en el enlace. Escanea el QR en la obra.',
   },
@@ -74,6 +88,7 @@ const views = {
   clock: $('view-clock'), pin: $('view-pin'),
   recovery: $('view-recovery'), fallback: $('view-fallback'),
   timelog: $('view-timelog'), addpunch: $('view-addpunch'), invoice: $('view-invoice'),
+  materials: $('view-materials'), rate: $('view-rate'),
 };
 function show(name) {
   Object.values(views).forEach((v) => v.classList.remove('active'));
@@ -138,6 +153,20 @@ const API = {
     if (state.data?.demo) return demoInvoice();
     try {
       const r = await fetch(`/api/invoice?workerId=${encodeURIComponent(workerId)}&pin=${encodeURIComponent(pin)}`);
+      return await r.json();
+    } catch { return { ok: false, error: t('err') }; }
+  },
+  async material(payload) {
+    if (state.data?.demo) return { ok: true };
+    try {
+      const r = await fetch('/api/material', { method: 'POST', headers: json, body: JSON.stringify({ ...payload, site: state.site }) });
+      return await r.json();
+    } catch { return { ok: false, error: t('err') }; }
+  },
+  async rate(payload) {
+    if (state.data?.demo) return { ok: true, newRate: payload.newRate };
+    try {
+      const r = await fetch('/api/rate', { method: 'POST', headers: json, body: JSON.stringify(payload) });
       return await r.json();
     } catch { return { ok: false, error: t('err') }; }
   },
@@ -350,7 +379,10 @@ function afterAuth(pin) {
   if (state.intent === 'secondary') { openSecondary(); return; }
   if (state.intent === 'addpunch') { openAddPunch(); return; }
   if (state.worker.openPriorDate) { openRecovery(); return; }
-  doPunch(state.worker.status === 'in' ? 'OUT' : 'IN');
+  const action = state.worker.status === 'in' ? 'OUT' : 'IN';
+  // Owners/independents get a Materials prompt on clock-out.
+  if (action === 'OUT' && (state.worker.type && state.worker.type !== 'employee')) { openMaterials(); return; }
+  doPunch(action);
 }
 function openRecovery() {
   $('recDay').value = state.worker.openInfo?.label || '';
@@ -533,6 +565,48 @@ async function submitAddPunch() {
   show('timelog');
 }
 
+/* ------------------------------------------------- materials (owner clock-out) */
+function openMaterials() {
+  $('matAmount').value = ''; $('matNote').value = ''; $('matReceipt').value = '';
+  show('materials');
+}
+function fileToBase64(file) {
+  return new Promise((resolve) => {
+    if (!file) { resolve(null); return; }
+    const r = new FileReader();
+    r.onload = () => { const s = String(r.result); resolve({ filename: file.name, mimeType: file.type, base64: s.slice(s.indexOf(',') + 1) }); };
+    r.onerror = () => resolve(null);
+    r.readAsDataURL(file);
+  });
+}
+async function saveMaterialsThenOut() {
+  const amount = parseFloat($('matAmount').value);
+  const file = $('matReceipt').files[0];
+  if (Number.isFinite(amount) && amount > 0) {
+    showLoading(true);
+    const receipt = await fileToBase64(file);
+    const res = await API.material({ workerId: state.worker.id, pin: state.authedPin, amount, note: $('matNote').value.trim(), receipt });
+    showLoading(false);
+    if (!res.ok) { alert(res.error || t('err')); return; }
+  }
+  doPunch('OUT');
+}
+
+/* ---------------------------------------------------- change pay rate (owner) */
+function openRate() { $('rateInput').value = ''; show('rate'); }
+async function saveRate() {
+  const rate = parseFloat($('rateInput').value);
+  if (!Number.isFinite(rate) || rate <= 0) { alert(t('rateBad')); return; }
+  showLoading(true);
+  const res = await API.rate({ workerId: state.worker.id, pin: state.authedPin, newRate: rate });
+  showLoading(false);
+  if (!res.ok) { alert(res.error || t('err')); return; }
+  alert(t('rateSaved'));
+  const inv = await API.invoice(state.worker.id, state.authedPin); // refresh draft
+  if (inv.ok && inv.invoice) renderInvoice(inv.invoice);
+  show('invoice');
+}
+
 /* ------------------------------------------------------------------ reset / nav */
 function resetToClock() {
   state.pinBuf = ''; state.pinFirst = ''; state.authedPin = null;
@@ -577,6 +651,16 @@ function bind() {
       x.classList.toggle('out', x === b && b.dataset.act === 'OUT');
     });
   });
+
+  // materials (owner clock-out)
+  $('matSave').addEventListener('click', saveMaterialsThenOut);
+  $('matSkip').addEventListener('click', () => doPunch('OUT'));
+  $('matBack').addEventListener('click', resetToClock);
+  // change pay rate
+  $('invRateBtn').addEventListener('click', openRate);
+  $('rateSave').addEventListener('click', saveRate);
+  $('rateCancel').addEventListener('click', () => show('invoice'));
+  $('rateBack').addEventListener('click', () => show('invoice'));
 
   $('keypad').addEventListener('click', (e) => {
     const b = e.target.closest('.key'); if (b) pinKey(b.dataset.k);

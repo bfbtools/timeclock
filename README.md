@@ -34,6 +34,8 @@ bfb-timeclock/
 │   ├── invoice.js              # GET  /api/invoice — sub invoice draft (PIN-gated)
 │   ├── invoice-run.js          # SCHEDULED — Saturday auto-send (Sun 06:00 UTC)
 │   ├── invoice-preview.js      # GET  /api/invoice-preview — admin dry-run/manual run
+│   ├── material.js             # POST /api/material — owner materials + receipt
+│   ├── rate.js                 # POST /api/rate — change pay rate (RateLog + email)
 │   └── lib/
 │       ├── sheets.js           # Google Sheets read/write helper
 │       ├── model.js            # domain helpers (roster, punch state, ET time)
@@ -42,6 +44,7 @@ bfb-timeclock/
 │       ├── invoicing.js        # week orchestration: generate + send + log
 │       ├── email.js            # Resend wrapper
 │       ├── email-templates.js  # branded HTML invoice emails
+│       ├── drive.js            # Drive receipt upload (drive.file scope)
 │       ├── http.js             # JSON response / body helpers
 │       └── config.js           # tab names + business constants
 ├── docs/                       # spec + brand guidelines (reference copies)
@@ -62,6 +65,7 @@ in a local `.env` file (never committed) for `netlify dev`. See `.env.example`.
 | `RESEND_API_KEY` | Resend API key (domain `backforty.builders` verified). |
 | `ACCOUNTING_EMAIL` | `accounting@backforty.builders` (from/copy address). |
 | `ADMIN_TOKEN` | Long random string; gates `/api/invoice-preview` (dry-run/manual invoicing). |
+| `DRIVE_FOLDER_ID` | *(optional)* Drive folder for receipt photos; unset = materials save without a receipt link. |
 
 ## Setup steps (Adrienne runs these — code is scaffolded, you do the cloud/auth)
 
@@ -78,8 +82,13 @@ in a local `.env` file (never committed) for `netlify dev`. See `.env.example`.
 5. **QR codes:** one per site → `https://timeclock.backforty.builders/?site=<QRParam>`
    (`QRParam` is in the Projects tab).
 
-> Drive/receipt upload uses the same service account (Build Step 6); no extra
-> key needed, but the target Drive folder must be shared with it as Editor.
+6. **Drive (for materials receipts):** in Google Cloud, **enable the Google
+   Drive API**; create a Drive folder, **share it with the service-account
+   email** as Editor, and put its folder ID in `DRIVE_FOLDER_ID`. Optional —
+   materials still save without it, just with no receipt link.
+
+> Receipt upload uses the same service account as Sheets (drive.file scope);
+> no extra key needed.
 
 ## Verify the backend (do this after step 2 + local `.env`)
 
@@ -99,7 +108,10 @@ the message says what's wrong (missing env var, bad JSON, or Sheet not shared).
 3. ✅ Rollup engine (pairing, hours, lunch, Carlito, Mon–Sat) + unit tests (`npm test`).
 4. ✅ PIN-gated Time Log (employees) + Invoice Draft (owners/independents).
 5. ✅ Invoicing: Saturday scheduled auto-send, AutoInvoice toggle, QB + GC drafts, InvoiceLog, admin dry-run.
-6. ⬜ Materials capture + Drive receipt upload; RateLog + change email.  ← **next**
+6. ✅ Materials capture + Drive receipt upload; RateLog + rate-change email.
+
+**All six build steps complete.** Remaining to go live: your cloud setup
+(Netlify env vars + deploy) and the optional Drive folder for receipts.
 
 ## Guardrails
 
