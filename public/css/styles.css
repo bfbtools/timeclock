@@ -25,6 +25,14 @@ body{font-family:'Libre Franklin',sans-serif;background:#34332c;color:var(--ink)
   border-radius:32px;overflow:hidden;position:relative;display:flex;flex-direction:column;
   box-shadow:0 30px 70px rgba(0,0,0,0.45);}
 
+/* On phones, fill the screen edge-to-edge instead of a floating mockup card.
+   (The framed card look is kept on wider screens.) */
+@media (max-width:500px){
+  html,body{height:auto;}
+  body{padding:0;background:var(--paper);align-items:stretch;justify-content:flex-start;min-height:100vh;min-height:100dvh;}
+  .screen{width:100%;max-width:100%;min-height:100vh;min-height:100dvh;border-radius:0;box-shadow:none;}
+}
+
 /* ---- topbar ---- */
 .topbar{background:var(--forge);color:var(--paper);padding:18px 22px 16px;
   display:flex;align-items:flex-start;justify-content:space-between;position:relative;}
