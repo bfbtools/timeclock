@@ -259,8 +259,18 @@ function applyI18n() {
   $('langEs').classList.toggle('on', lang === 'es');
   document.documentElement.lang = lang;
   if (state.worker) setMainButton();
-  if (state.data) renderRemembered();
+  if (state.data) { renderRemembered(); updateSiteName(); }
+  // Re-render whatever dynamic screen is open so it picks up the new language.
+  if (views.timelog.classList.contains('active') && state.timelog) renderTimeLog(state.timelog);
+  if (views.invoice.classList.contains('active') && state.invoiceData) renderInvoice(state.invoiceData);
   tick();
+}
+
+// Jobsite banner text — depends on language, so re-run on every language change.
+function updateSiteName() {
+  if (!state.data) return;
+  $('siteName').textContent = state.data.project?.siteName
+    || (state.noSite ? t('noSite') : (lang === 'en' ? 'Unknown site' : 'Obra desconocida'));
 }
 
 /* ------------------------------------------------------------------ flip clock (from approved preview) */
@@ -507,12 +517,22 @@ async function openSecondary() {
   }
 }
 
+// Review flags come from the backend in English; translate the known ones.
+const FLAG_ES = {
+  'missing clock-out': 'falta marcar salida',
+  'clock-out with no clock-in': 'salida sin entrada',
+  'clock-out not after clock-in': 'la salida no es después de la entrada',
+  'worked Sunday — outside the Mon–Sat week; not counted, please review': 'trabajó domingo — fuera de la semana lun–sáb; no contado, revisar',
+  'Sunday counted in week (Sundays are enabled)': 'domingo contado en la semana',
+};
+function translateFlag(reason) { return lang === 'es' ? (FLAG_ES[reason] || reason) : reason; }
+
 function renderFlags(el, flags) {
   el.innerHTML = '';
   (flags || []).forEach((f) => {
     const d = document.createElement('div'); d.className = 'flagline';
     const who = f.worker ? `${f.worker}, ` : '';
-    d.innerHTML = `<span class="material-symbols-rounded">flag</span><span>${who}${fmtShort(f.date)} — ${f.reason}</span>`;
+    d.innerHTML = `<span class="material-symbols-rounded">flag</span><span>${who}${fmtShort(f.date)} — ${translateFlag(f.reason)}</span>`;
     el.appendChild(d);
   });
 }
@@ -546,6 +566,7 @@ function renderTimeLog(d) {
 }
 
 function renderInvoice(inv) {
+  state.invoiceData = inv; // kept so a language toggle can re-render it
   $('invMeta').innerHTML = `<div class="co">${inv.company}</div><div class="wk">${fmtRange(inv.weekStart, inv.weekEnd)}</div>`;
   const lines = $('invLines'); lines.innerHTML = '';
   const matLabel = lang === 'en' ? 'Materials' : 'Materiales';
@@ -761,8 +782,7 @@ async function boot() {
   if (state.data.demo) $('demoBadge').classList.remove('hidden');
   // Presence proof: real use requires a valid jobsite from the scanned QR.
   state.noSite = !state.data.demo && !state.data.project;
-  $('siteName').textContent = state.data.project?.siteName
-    || (state.noSite ? t('noSite') : (lang === 'en' ? 'Unknown site' : 'Obra desconocida'));
+  updateSiteName();
 
   buildDropdown();
   renderRemembered();
