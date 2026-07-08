@@ -37,7 +37,7 @@ bfb-timeclock/
 │   ├── invoice-preview.js      # GET  /api/invoice-preview — admin dry-run/manual run
 │   ├── material.js             # POST /api/material — owner materials + receipt
 │   ├── rate.js                 # POST /api/rate — change pay rate (RateLog + email)
-│   ├── projects.js             # GET  /api/projects — active sites + QR codes (admin)
+│   ├── projects.js             # GET  /api/projects — active sites + QR codes (open)
 │   └── lib/
 │       ├── sheets.js           # Google Sheets read/write helper
 │       ├── model.js            # domain helpers (roster, punch state, ET time)
@@ -82,9 +82,10 @@ in a local `.env` file (never committed) for `netlify dev`. See `.env.example`.
    (add the DNS records it gives you) → create an API key.
 4. **Netlify:** set the four env vars above → add custom domain
    **timeclock.backforty.builders** (one CNAME in DNS).
-5. **QR codes:** open **`/qr.html`** on the live site, enter your `ADMIN_TOKEN`,
-   and print one QR per site (it reads the Projects tab and builds
-   `…/?site=<QRParam>` for each active site). Post each at its jobsite.
+5. **QR codes:** open **`/qr.html`** on the live site and print one QR per site
+   (it reads the Projects tab and builds `…/?site=<QRParam>` for each active
+   site). No login needed — the codes are meant to be posted publicly. Post each
+   at its jobsite.
 
 6. **Drive (for materials receipts):** in Google Cloud, **enable the Google
    Drive API**; create a Drive folder, **share it with the service-account

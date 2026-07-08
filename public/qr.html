@@ -33,25 +33,19 @@
   <div class="bar">
     <div><h1>Jobsite QR Codes</h1><div class="sub">Print one per site and post it at the jobsite. Workers scan to clock in.</div></div>
     <div class="tools">
-      <input id="token" type="password" placeholder="Admin token" autocomplete="off">
-      <button id="load">Load</button>
       <button id="print" style="background:var(--forge)">Print</button>
     </div>
   </div>
-  <div class="msg" id="msg">Enter your admin token and press Load.</div>
+  <div class="msg" id="msg">Loading…</div>
   <div class="grid" id="grid"></div>
 
 <script>
   const $ = (id) => document.getElementById(id);
-  const params = new URLSearchParams(location.search);
-  if (params.get('token')) $('token').value = params.get('token');
 
   async function load() {
-    const token = $('token').value.trim();
-    if (!token) { $('msg').textContent = 'Enter your admin token first.'; return; }
     $('msg').textContent = 'Loading…'; $('grid').innerHTML = '';
     try {
-      const r = await fetch('/api/projects?token=' + encodeURIComponent(token));
+      const r = await fetch('/api/projects');
       const data = await r.json();
       if (!data.ok) { $('msg').textContent = data.error || 'Failed to load.'; return; }
       if (!data.projects.length) { $('msg').textContent = 'No active projects with a QRParam found.'; return; }
@@ -67,9 +61,8 @@
         </div>`).join('');
     } catch (e) { $('msg').textContent = 'Error: ' + e.message; }
   }
-  $('load').addEventListener('click', load);
   $('print').addEventListener('click', () => window.print());
-  if (params.get('token')) load();
+  load();
 </script>
 </body>
 </html>
