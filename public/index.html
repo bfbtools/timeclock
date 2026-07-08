@@ -69,6 +69,7 @@
             <option value="" selected disabled data-i18n="sel">Select your name</option>
           </select>
         </div>
+        <button class="linkbtn notyou-link hidden" id="notYouBtn" data-i18n="notyou">Not you?</button>
 
         <div class="spacer"></div>
 
@@ -76,10 +77,12 @@
           <span class="material-symbols-rounded" id="mainBtnIcon">schedule</span>
           <span id="mainBtnLabel" data-i18n="sel">Select your name</span>
         </button>
-        <button class="linkbtn hidden" id="notYouBtn" data-i18n="notyou">Not you?</button>
         <div class="hint" id="hint" data-i18n="hint">Scanned at the jobsite • tap to start your day</div>
-        <button class="linkbtn" id="secondaryBtn" data-i18n="myhours">View my hours</button>
-        <button class="linkbtn" id="fallbackBtn" data-i18n="notlisted">My name isn't here</button>
+        <div class="linkrow">
+          <button class="linkbtn" id="secondaryBtn" data-i18n="myhours">View my hours</button>
+          <span class="linksep" aria-hidden="true">|</span>
+          <button class="linkbtn" id="fallbackBtn" data-i18n="notlisted">My name isn't here</button>
+        </div>
       </section>
 
       <!-- ============ VIEW: PIN ============ -->
