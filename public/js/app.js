@@ -41,6 +41,7 @@ const I = {
     rateBad: 'Enter a valid rate.',
     err: 'Something went wrong. Try again.', errName: 'Enter your first and last name.',
     errSub: 'Pick your company.', noSite: 'No jobsite in the link. Scan the QR at the site.',
+    noSiteShort: 'Scan the jobsite QR',
   },
   es: {
     loc: 'es',
@@ -77,6 +78,7 @@ const I = {
     rateBad: 'Ingresa una tarifa válida.',
     err: 'Algo salió mal. Inténtalo de nuevo.', errName: 'Escribe tu nombre y apellido.',
     errSub: 'Selecciona tu compañía.', noSite: 'No hay obra en el enlace. Escanea el QR en la obra.',
+    noSiteShort: 'Escanea el QR de la obra',
   },
 };
 let lang = localStorage.getItem('bfb_lang') || 'en';
@@ -306,6 +308,10 @@ function buildDropdown() {
 }
 function setMainButton() {
   const btn = $('mainBtn'), label = $('mainBtnLabel'), icon = $('mainBtnIcon');
+  if (state.noSite) {
+    btn.disabled = true; btn.classList.remove('out');
+    label.textContent = t('noSiteShort'); icon.textContent = 'qr_code_scanner'; return;
+  }
   if (!state.worker) {
     btn.disabled = true; btn.classList.remove('out');
     label.textContent = t('sel'); icon.textContent = 'schedule'; return;
@@ -687,7 +693,10 @@ async function boot() {
   $('loading').classList.add('hidden');
 
   if (state.data.demo) $('demoBadge').classList.remove('hidden');
-  $('siteName').textContent = state.data.project?.siteName || (lang === 'en' ? 'Unknown site' : 'Obra desconocida');
+  // Presence proof: real use requires a valid jobsite from the scanned QR.
+  state.noSite = !state.data.demo && !state.data.project;
+  $('siteName').textContent = state.data.project?.siteName
+    || (state.noSite ? t('noSite') : (lang === 'en' ? 'Unknown site' : 'Obra desconocida'));
 
   buildDropdown();
   renderRemembered();

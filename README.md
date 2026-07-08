@@ -21,7 +21,8 @@ Approved UI: [`public/assets/BFB_TimeClock_ClockIn_Preview.html`](public/assets/
 ```
 bfb-timeclock/
 ├── public/                     # static site (Netlify publish dir)
-│   ├── index.html              # placeholder — real UI lands in Build Step 2
+│   ├── index.html              # the time-clock app
+│   ├── qr.html                 # admin: print jobsite QR codes
 │   ├── assets/                 # approved design reference
 │   ├── css/  js/               # (front end, Build Step 2)
 ├── netlify/functions/          # serverless API
@@ -36,6 +37,7 @@ bfb-timeclock/
 │   ├── invoice-preview.js      # GET  /api/invoice-preview — admin dry-run/manual run
 │   ├── material.js             # POST /api/material — owner materials + receipt
 │   ├── rate.js                 # POST /api/rate — change pay rate (RateLog + email)
+│   ├── projects.js             # GET  /api/projects — active sites + QR codes (admin)
 │   └── lib/
 │       ├── sheets.js           # Google Sheets read/write helper
 │       ├── model.js            # domain helpers (roster, punch state, ET time)
@@ -66,6 +68,7 @@ in a local `.env` file (never committed) for `netlify dev`. See `.env.example`.
 | `ACCOUNTING_EMAIL` | `accounting@backforty.builders` (from/copy address). |
 | `ADMIN_TOKEN` | Long random string; gates `/api/invoice-preview` (dry-run/manual invoicing). |
 | `DRIVE_FOLDER_ID` | *(optional)* Drive folder for receipt photos; unset = materials save without a receipt link. |
+| `SITE_URL` | *(optional)* Public base URL for QR links; defaults to the production domain. |
 
 ## Setup steps (Adrienne runs these — code is scaffolded, you do the cloud/auth)
 
@@ -79,8 +82,9 @@ in a local `.env` file (never committed) for `netlify dev`. See `.env.example`.
    (add the DNS records it gives you) → create an API key.
 4. **Netlify:** set the four env vars above → add custom domain
    **timeclock.backforty.builders** (one CNAME in DNS).
-5. **QR codes:** one per site → `https://timeclock.backforty.builders/?site=<QRParam>`
-   (`QRParam` is in the Projects tab).
+5. **QR codes:** open **`/qr.html`** on the live site, enter your `ADMIN_TOKEN`,
+   and print one QR per site (it reads the Projects tab and builds
+   `…/?site=<QRParam>` for each active site). Post each at its jobsite.
 
 6. **Drive (for materials receipts):** in Google Cloud, **enable the Google
    Drive API**; create a Drive folder, **share it with the service-account
