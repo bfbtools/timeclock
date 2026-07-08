@@ -50,6 +50,7 @@ export default guard(async (req) => {
       unpaired: paired.unpaired.length,
       punches: dayPunches
         .map((p) => ({
+          id: String(p.PunchID || '').trim(),
           time: hhmm(p.Timestamp),
           action: String(p.Action).toUpperCase(),
           manual: String(p.Source).toLowerCase() === 'manual',

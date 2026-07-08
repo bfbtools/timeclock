@@ -27,8 +27,10 @@ const I = {
     myhours: 'View my hours', back: 'Back',
     tl_title: 'My time', tl_locked: 'Locked — the week closed Saturday',
     tl_total: 'Week total', tl_add: 'Add a missed punch',
-    ap_title: 'Add a missed punch', ap_note: 'This will be flagged as a manual entry for the office to review.',
-    ap_which: 'Clock in or out?', ap_day: 'Day', ap_time: 'Time', ap_save: 'Save punch',
+    ap_title: 'Add a missed punch', ap_edit: 'Edit punch',
+    ap_note: 'This will be flagged as a manual entry for the office to review.',
+    ap_which: 'Clock in or out?', ap_site: 'Jobsite', ap_day: 'Day', ap_time: 'Time', ap_save: 'Save punch',
+    atSite: 'at', tapEdit: 'Tap a punch to fix its time',
     inv_title: 'Invoice draft', inv_total: 'Total', inv_hint: 'Draft • auto-sends midnight Saturday',
     invEmpty: 'No hours logged this week yet.', pickFirst: 'Pick your name first.',
     apMissing: 'Pick a day and time.', locale: 'en-US',
@@ -64,8 +66,10 @@ const I = {
     myhours: 'Ver mis horas', back: 'Atrás',
     tl_title: 'Mi tiempo', tl_locked: 'Cerrado — la semana terminó el sábado',
     tl_total: 'Total de la semana', tl_add: 'Agregar marca olvidada',
-    ap_title: 'Agregar marca olvidada', ap_note: 'Se marcará como entrada manual para que la oficina la revise.',
-    ap_which: '¿Entrada o salida?', ap_day: 'Día', ap_time: 'Hora', ap_save: 'Guardar marca',
+    ap_title: 'Agregar marca olvidada', ap_edit: 'Editar marca',
+    ap_note: 'Se marcará como entrada manual para que la oficina la revise.',
+    ap_which: '¿Entrada o salida?', ap_site: 'Obra', ap_day: 'Día', ap_time: 'Hora', ap_save: 'Guardar marca',
+    atSite: 'en', tapEdit: 'Toca una marca para corregir la hora',
     inv_title: 'Borrador de factura', inv_total: 'Total', inv_hint: 'Borrador • se envía el sábado a medianoche',
     invEmpty: 'Aún no hay horas esta semana.', pickFirst: 'Selecciona tu nombre primero.',
     apMissing: 'Selecciona día y hora.', locale: 'es',
@@ -131,7 +135,14 @@ const API = {
   async punch(payload) {
     if (state.data?.demo) return { ok: true, at: new Date().toISOString() };
     try {
-      const r = await fetch('/api/punch', { method: 'POST', headers: json, body: JSON.stringify({ ...payload, site: state.site }) });
+      const r = await fetch('/api/punch', { method: 'POST', headers: json, body: JSON.stringify({ site: state.site, ...payload }) });
+      return await r.json();
+    } catch { return { ok: false, error: t('err') }; }
+  },
+  async punchEdit(payload) {
+    if (state.data?.demo) return { ok: true };
+    try {
+      const r = await fetch('/api/punch-edit', { method: 'POST', headers: json, body: JSON.stringify(payload) });
       return await r.json();
     } catch { return { ok: false, error: t('err') }; }
   },
@@ -187,6 +198,11 @@ function demoSite() {
       { id: 'SUB-SNOW', company: 'SnowPeak' },
       { id: 'SUB-LOPEZ', company: 'Lopez' },
     ],
+    sites: [
+      { qrParam: 'french1', siteName: 'French Hill Rd — Bldg 1' },
+      { qrParam: 'campjohnson', siteName: 'Camp Johnson' },
+      { qrParam: 'appletree', siteName: 'Apple Tree Learning Center' },
+    ],
     workers: [
       { id: 'W1', name: 'Fredy', sub: 'San Ignacio', type: 'employee', hasPin: true, status: 'out' },
       { id: 'W2', name: 'Carlos', sub: 'San Ignacio', type: 'employee', hasPin: true, status: 'in' },
@@ -210,9 +226,9 @@ function demoTimelog() {
     ok: true, worker: { id: 'W1', name: 'Fredy', type: 'employee' },
     weekStart: ws, weekEnd: we, locked: false, weekHours: 16, flags: [],
     days: [
-      mk(0, 8, [{ time: '07:00', action: 'IN', manual: false, edited: false }, { time: '15:00', action: 'OUT', manual: false, edited: false }]),
+      mk(0, 8, [{ id: 'P-d1', time: '07:00', action: 'IN', manual: false, edited: false }, { id: 'P-d2', time: '15:00', action: 'OUT', manual: false, edited: false }]),
       mk(1, 0, []),
-      mk(2, 8, [{ time: '07:15', action: 'IN', manual: false, edited: false }, { time: '15:15', action: 'OUT', manual: true, edited: true }]),
+      mk(2, 8, [{ id: 'P-d3', time: '07:15', action: 'IN', manual: false, edited: false }, { id: 'P-d4', time: '15:15', action: 'OUT', manual: true, edited: true }]),
       mk(3, 0, []), mk(4, 0, []), mk(5, 0, []),
     ],
   };
@@ -425,6 +441,11 @@ function showConfirm(action, atIso) {
   $('cWho').textContent = state.worker.name;
   $('cStamp').textContent = `${hh}:${pad(m)} ${ap}`;
   $('cDate').textContent = d.toLocaleDateString(I[lang].loc, { weekday: 'long', month: 'long', day: 'numeric' });
+  // Reminder: show which jobsite this punch landed on, so a wrong site is obvious.
+  const siteName = state.data?.project?.siteName;
+  const cSite = $('cSite');
+  if (siteName) { cSite.innerHTML = `<span class="material-symbols-rounded" style="font-size:16px">distance</span> ${siteName}`; cSite.style.display = ''; }
+  else { cSite.style.display = 'none'; }
   c.classList.add('show');
 }
 function closeConfirm() {
@@ -501,14 +522,17 @@ function renderTimeLog(d) {
   $('tlLocked').classList.toggle('hidden', !d.locked);
   $('tlAdd').classList.toggle('hidden', d.locked);
   const wrap = $('tlDays'); wrap.innerHTML = '';
-  d.days.forEach((day) => {
+  const editable = !d.locked;
+  d.days.forEach((day, di) => {
     const el = document.createElement('div');
     el.className = 'tl-day' + (!day.hours && !day.punches.length ? ' empty' : '');
-    const chips = day.punches.map((p) => {
+    const chips = day.punches.map((p, pi) => {
       const flagged = p.manual || p.edited ? ' flagged' : '';
+      const tap = editable ? ' tappable' : '';
       const icon = p.action === 'IN' ? 'login' : 'logout';
       const mark = (p.manual || p.edited) ? ' ✎' : '';
-      return `<span class="chip ${p.action === 'IN' ? 'in' : 'out'}${flagged}"><span class="material-symbols-rounded">${icon}</span>${p.time}${mark}</span>`;
+      const attrs = editable ? ` role="button" data-di="${di}" data-pi="${pi}"` : '';
+      return `<span class="chip ${p.action === 'IN' ? 'in' : 'out'}${flagged}${tap}"${attrs}><span class="material-symbols-rounded">${icon}</span>${p.time}${mark}</span>`;
     }).join('');
     el.innerHTML = `<div class="drow"><span class="dname">${fmtDayLong(day.date)}</span>`
       + `<span class="dhrs ${day.hours ? '' : 'zero'}">${day.hours ? day.hours + 'h' : '—'}</span></div>`
@@ -516,6 +540,8 @@ function renderTimeLog(d) {
     wrap.appendChild(el);
   });
   $('tlTotal').textContent = d.weekHours + 'h';
+  const hasPunches = d.days.some((x) => x.punches.length);
+  $('tlEditHint').textContent = (editable && hasPunches) ? t('tapEdit') : '';
   renderFlags($('tlFlags'), d.flags);
 }
 
@@ -546,16 +572,45 @@ function renderInvoice(inv) {
   renderFlags($('invFlags'), inv.flags);
 }
 
-/* ---- add a missed punch (PIN re-entered before this opens) ---- */
-function openAddPunch() {
-  state.apAction = 'IN';
-  document.querySelectorAll('#apSeg button').forEach((b) => b.classList.toggle('on', b.dataset.act === 'IN'));
-  document.querySelectorAll('#apSeg button').forEach((b) => b.classList.remove('out'));
+function setSeg(action) {
+  state.apAction = action;
+  document.querySelectorAll('#apSeg button').forEach((b) => {
+    b.classList.toggle('on', b.dataset.act === action);
+    b.classList.toggle('out', b.dataset.act === action && action === 'OUT');
+  });
+}
+function fillDayOptions() {
   const sel = $('apDay'); sel.innerHTML = '';
   const tl = state.timelog;
   const dates = tl ? datesInclusive(tl.weekStart, tl.weekEnd) : datesInclusive(weekMondayISO(), addDaysISO(weekMondayISO(), 5));
   dates.forEach((iso) => { const o = document.createElement('option'); o.value = iso; o.textContent = fmtDayLong(iso); sel.appendChild(o); });
+}
+function fillSiteOptions() {
+  const sel = $('apSite'); sel.innerHTML = '';
+  (state.data?.sites || []).forEach((s) => { const o = document.createElement('option'); o.value = s.qrParam; o.textContent = s.siteName; sel.appendChild(o); });
+  if (state.site) sel.value = state.site; // default to the scanned site if present
+}
+
+/* ---- add a missed punch (PIN re-entered before this opens) ---- */
+function openAddPunch() {
+  state.editPunchId = null;
+  $('apTitle').textContent = t('ap_title');
+  $('apSiteField').style.display = ''; // adds need a jobsite (works offsite)
+  fillSiteOptions();
+  fillDayOptions();
+  setSeg('IN');
   $('apTime').value = '';
+  show('addpunch');
+}
+/* ---- edit an existing punch's time (offsite-friendly) ---- */
+function openEditPunch(punch, date) {
+  state.editPunchId = punch.id;
+  $('apTitle').textContent = t('ap_edit');
+  $('apSiteField').style.display = 'none'; // editing time/action, not moving sites
+  fillDayOptions();
+  $('apDay').value = date;
+  setSeg(punch.action);
+  $('apTime').value = punch.time;
   show('addpunch');
 }
 async function submitAddPunch() {
@@ -563,7 +618,12 @@ async function submitAddPunch() {
   if (!day || !time) { alert(t('apMissing')); return; }
   const at = `${day}T${time}:00`;
   showLoading(true);
-  const res = await API.punch({ workerId: state.worker.id, pin: state.authedPin, action: state.apAction, at, missed: true });
+  let res;
+  if (state.editPunchId) {
+    res = await API.punchEdit({ workerId: state.worker.id, pin: state.authedPin, punchId: state.editPunchId, at, action: state.apAction });
+  } else {
+    res = await API.punch({ workerId: state.worker.id, pin: state.authedPin, action: state.apAction, at, missed: true, site: $('apSite').value });
+  }
   if (!res.ok) { showLoading(false); alert(res.error || t('err')); return; }
   const tl = await API.timelog(state.worker.id, state.authedPin); // refresh
   showLoading(false);
@@ -646,6 +706,12 @@ function bind() {
   $('tlBack').addEventListener('click', resetToClock);
   $('invBack').addEventListener('click', resetToClock);
   $('tlAdd').addEventListener('click', () => openPin('addpunch')); // PIN again to add
+  $('tlDays').addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip.tappable'); if (!chip) return;
+    const day = state.timelog?.days[+chip.dataset.di];
+    const punch = day?.punches[+chip.dataset.pi];
+    if (punch) openEditPunch(punch, day.date);
+  });
   $('apBack').addEventListener('click', () => show('timelog'));
   $('apCancel').addEventListener('click', () => show('timelog'));
   $('apSubmit').addEventListener('click', submitAddPunch);

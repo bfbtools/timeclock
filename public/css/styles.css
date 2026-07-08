@@ -148,6 +148,9 @@ select.empty{color:var(--placeholder);font-weight:500;}
 .confirm .stamp{margin-top:26px;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:46px;letter-spacing:1px;font-variant-numeric:tabular-nums;line-height:0.9;}
 .confirm.show .stamp{animation:rise .4s ease .28s both;}
 .confirm .stamp-label{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.6);margin-top:7px;}
+.confirm .csite{display:inline-flex;align-items:center;gap:6px;margin-top:16px;background:rgba(255,255,255,0.12);
+  border-radius:20px;padding:6px 14px;font-size:13px;font-weight:700;letter-spacing:.5px;color:#fff;}
+.confirm.show .csite{animation:rise .4s ease .34s both;}
 .confirm .reset{margin-top:34px;background:transparent;border:1.5px solid rgba(255,255,255,0.4);color:#fff;
   font-family:'Libre Franklin';font-weight:600;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;padding:11px 20px;border-radius:8px;cursor:pointer;}
 @keyframes pop{0%{transform:scale(0);}100%{transform:scale(1);}}
@@ -180,6 +183,9 @@ select.empty{color:var(--placeholder);font-weight:500;}
 .chip.out{color:var(--forge);}
 .chip .material-symbols-rounded{font-size:13px;}
 .chip.flagged{border-color:var(--brass);background:#fcf0db;color:var(--brass);}
+.chip.tappable{cursor:pointer;}
+.chip.tappable:active{transform:scale(0.96);}
+.tl-edithint{font-size:11px;font-weight:600;color:var(--placeholder);margin:0 2px 8px;font-style:italic;}
 .tl-total{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;
   border-top:1.5px solid var(--line);font-weight:700;letter-spacing:.5px;color:var(--ink);}
 .tl-total .big{font-family:'Barlow Condensed';font-size:26px;}

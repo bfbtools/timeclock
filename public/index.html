@@ -150,6 +150,7 @@
         <div class="sec-title" id="tlTitle" data-i18n="tl_title">My time</div>
         <div class="sec-sub" id="tlWeek">—</div>
         <div class="locked-note hidden" id="tlLocked"><span class="material-symbols-rounded">lock</span><span data-i18n="tl_locked">Locked — the week closed Saturday</span></div>
+        <div class="tl-edithint" id="tlEditHint"></div>
         <div class="tl-days" id="tlDays"></div>
         <div class="tl-total"><span data-i18n="tl_total">Week total</span><span class="big" id="tlTotal">0h</span></div>
         <div class="tl-flags" id="tlFlags"></div>
@@ -162,7 +163,7 @@
         <div class="sec-head">
           <button class="backbtn" id="apBack"><span class="material-symbols-rounded">chevron_left</span><span data-i18n="back">Back</span></button>
         </div>
-        <div class="sec-title" data-i18n="ap_title">Add a missed punch</div>
+        <div class="sec-title" id="apTitle" data-i18n="ap_title">Add a missed punch</div>
         <div class="form-note" data-i18n="ap_note">This will be flagged as a manual entry for the office to review.</div>
         <div class="field">
           <label data-i18n="ap_which">Clock in or out?</label>
@@ -171,6 +172,7 @@
             <button type="button" data-act="OUT" data-i18n="clockOut">Clock Out</button>
           </div>
         </div>
+        <div class="field" id="apSiteField"><label data-i18n="ap_site">Jobsite</label><select id="apSite"></select></div>
         <div class="field"><label data-i18n="ap_day">Day</label><select id="apDay"></select></div>
         <div class="field"><label data-i18n="ap_time">Time</label><input type="time" id="apTime"></div>
         <div class="spacer"></div>
@@ -230,6 +232,7 @@
       <div class="who" id="cWho">—</div>
       <div class="stamp" id="cStamp">—</div>
       <div class="stamp-label" id="cDate">—</div>
+      <div class="csite" id="cSite">—</div>
       <button class="reset" id="cDone" data-i18n="done">Done</button>
     </div>
 

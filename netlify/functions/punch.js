@@ -22,8 +22,12 @@ export default guard(async (req) => {
   }
 
   const project = site ? await getProjectByQR(site) : null;
-  // Presence proof: a punch must come from a scanned jobsite QR.
-  if (!project) return json(400, { ok: false, error: 'No valid jobsite — scan the QR at the site', noSite: true });
+  // Presence proof for LIVE punches only: a real-time clock in/out must come
+  // from a scanned jobsite QR. Manual corrections (missed punches from the Time
+  // Log) are allowed offsite — the worker picks the jobsite in the form.
+  if (!missed && !project) {
+    return json(400, { ok: false, error: 'No valid jobsite — scan the QR at the site', noSite: true });
+  }
 
   // Timestamp: recovery sends an ET wall-clock value ("YYYY-MM-DDTHH:mm[:ss]");
   // live punches use now (ET). Normalize to "YYYY-MM-DD HH:mm:ss".

@@ -65,6 +65,14 @@ export async function getProjectsById() {
   return map;
 }
 
+// Active jobsites for the offsite Time Log site picker: [{ qrParam, siteName }].
+export async function getActiveSites() {
+  const { rows } = await readTab(TABS.PROJECTS);
+  return rows
+    .filter((p) => isActive(p) && String(p.QRParam || '').trim())
+    .map((p) => ({ qrParam: String(p.QRParam).trim(), siteName: p.SiteName }));
+}
+
 // All punches for a set of worker ids whose day falls within [start, end].
 export async function getPunchesForWorkers(ids, start, end) {
   const set = new Set(ids.map((i) => String(i).trim()));

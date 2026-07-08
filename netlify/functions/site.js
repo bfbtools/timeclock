@@ -4,15 +4,16 @@
 // the "my name isn't here" fallback. No PINs are ever returned.
 
 import { json, query, guard } from './lib/http.js';
-import { getProjectByQR, buildRoster, getSubsById } from './lib/model.js';
+import { getProjectByQR, buildRoster, getSubsById, getActiveSites } from './lib/model.js';
 
 export default guard(async (req) => {
   const qr = query(req, 'site');
 
-  const [project, roster, subs] = await Promise.all([
+  const [project, roster, subs, sites] = await Promise.all([
     qr ? getProjectByQR(qr) : Promise.resolve(null),
     buildRoster(),
     getSubsById(),
+    getActiveSites(),
   ]);
 
   return json(200, {
@@ -23,5 +24,6 @@ export default guard(async (req) => {
     subs: [...subs.values()]
       .filter((s) => String(s.Active).trim().toUpperCase().startsWith('Y'))
       .map((s) => ({ id: String(s.SubID).trim(), company: s.CompanyName })),
+    sites, // active jobsites, for the offsite Time Log site picker
   });
 });
