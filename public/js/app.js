@@ -24,6 +24,9 @@ const I = {
     fb_note: 'New here? Add your name and set a PIN. Your rate is set by the office.',
     fb_first: 'First name', fb_last: 'Last name', fb_sub: 'Your company / sub',
     fb_subsel: 'Select', fb_save: 'Continue & set PIN',
+    scan_title: 'Scan jobsite QR', scan_hint: 'Point your camera at the QR posted at the jobsite.',
+    scan_nocam: "Can't open the camera. Allow camera access, or use your phone's camera app to scan the QR.",
+    scan_bad: "That code isn't a BFB jobsite QR. Try the one posted at the site.",
     myhours: 'View my hours', back: 'Back',
     tl_title: 'My time', tl_locked: 'Locked — the week closed Saturday',
     tl_total: 'Week total', tl_add: 'Add a missed punch',
@@ -63,6 +66,9 @@ const I = {
     fb_note: '¿Eres nuevo? Agrega tu nombre y crea un PIN. La oficina define tu tarifa.',
     fb_first: 'Nombre', fb_last: 'Apellido', fb_sub: 'Tu compañía / sub',
     fb_subsel: 'Selecciona', fb_save: 'Continuar y crear PIN',
+    scan_title: 'Escanear QR de obra', scan_hint: 'Apunta la cámara al QR colocado en la obra.',
+    scan_nocam: 'No se puede abrir la cámara. Permite el acceso o usa la app de cámara de tu teléfono para escanear.',
+    scan_bad: 'Ese código no es un QR de obra BFB. Usa el que está colocado en la obra.',
     myhours: 'Ver mis horas', back: 'Atrás',
     tl_title: 'Mi tiempo', tl_locked: 'Cerrado — la semana terminó el sábado',
     tl_total: 'Total de la semana', tl_add: 'Agregar marca olvidada',
@@ -94,7 +100,7 @@ const views = {
   clock: $('view-clock'), pin: $('view-pin'),
   recovery: $('view-recovery'), fallback: $('view-fallback'),
   timelog: $('view-timelog'), addpunch: $('view-addpunch'), invoice: $('view-invoice'),
-  materials: $('view-materials'), rate: $('view-rate'),
+  materials: $('view-materials'), rate: $('view-rate'), scan: $('view-scan'),
 };
 function show(name) {
   Object.values(views).forEach((v) => v.classList.remove('active'));
@@ -271,6 +277,9 @@ function updateSiteName() {
   if (!state.data) return;
   $('siteName').textContent = state.data.project?.siteName
     || (state.noSite ? t('noSite') : (lang === 'en' ? 'Unknown site' : 'Obra desconocida'));
+  // With no jobsite, the card becomes a tappable "scan the QR" button (camera icon).
+  $('jobsiteCard').classList.toggle('scannable', state.noSite);
+  $('jobsiteIcon').textContent = state.noSite ? 'photo_camera' : 'distance';
 }
 
 /* ------------------------------------------------------------------ flip clock (from approved preview) */
@@ -694,6 +703,62 @@ async function saveRate() {
   show('invoice');
 }
 
+/* ------------------------------------------------------- QR scanner (no site) */
+let scanStream = null, scanRAF = null, scanCanvas = null, scanCtx = null;
+// Load the QR-decoding library on demand (keeps it off the normal page load).
+function loadJsQR() {
+  return new Promise((resolve, reject) => {
+    if (window.jsQR) return resolve();
+    const s = document.createElement('script');
+    s.src = '/js/jsQR.js'; s.onload = resolve; s.onerror = () => reject(new Error('load'));
+    document.head.appendChild(s);
+  });
+}
+async function openScanner() {
+  $('scanMsg').textContent = t('scan_hint');
+  show('scan');
+  try {
+    await loadJsQR();
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+  } catch {
+    $('scanMsg').textContent = t('scan_nocam');
+    return;
+  }
+  const video = $('scanVideo');
+  video.srcObject = scanStream;
+  video.setAttribute('playsinline', 'true');
+  try { await video.play(); } catch { /* iOS autoplay quirk — the stream still renders */ }
+  scanCanvas = document.createElement('canvas');
+  scanCtx = scanCanvas.getContext('2d', { willReadFrequently: true });
+  scanLoop();
+}
+function scanLoop() {
+  if (!scanStream) return; // cancelled
+  const video = $('scanVideo');
+  if (video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth) {
+    scanCanvas.width = video.videoWidth; scanCanvas.height = video.videoHeight;
+    scanCtx.drawImage(video, 0, 0, scanCanvas.width, scanCanvas.height);
+    const img = scanCtx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+    const code = window.jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+    if (code && code.data) { handleScan(code.data); return; }
+  }
+  scanRAF = requestAnimationFrame(scanLoop);
+}
+function stopScanner() {
+  if (scanRAF) { cancelAnimationFrame(scanRAF); scanRAF = null; }
+  if (scanStream) { scanStream.getTracks().forEach((tr) => tr.stop()); scanStream = null; }
+  const v = $('scanVideo'); if (v) v.srcObject = null;
+}
+function handleScan(text) {
+  // The QR encodes a URL like https://timeclock.backforty.builders/?site=french1
+  let site = null;
+  try { site = new URL(text, location.origin).searchParams.get('site'); } catch { /* not a URL */ }
+  if (site) { stopScanner(); location.href = '/?site=' + encodeURIComponent(site); return; }
+  // Not one of ours — say so, then resume scanning after a beat.
+  $('scanMsg').textContent = t('scan_bad');
+  setTimeout(() => { if (scanStream) { $('scanMsg').textContent = t('scan_hint'); scanLoop(); } }, 1500);
+}
+
 /* ------------------------------------------------------------------ reset / nav */
 function resetToClock() {
   state.pinBuf = ''; state.pinFirst = ''; state.authedPin = null;
@@ -722,6 +787,9 @@ function bind() {
     if (!state.worker) { alert(t('pickFirst')); return; }
     openPin('secondary');
   });
+  // No-jobsite card doubles as a "scan the QR" button.
+  $('jobsiteCard').addEventListener('click', () => { if (state.noSite) openScanner(); });
+  $('scanCancel').addEventListener('click', () => { stopScanner(); show('clock'); });
 
   // secondary tab nav
   $('tlBack').addEventListener('click', resetToClock);

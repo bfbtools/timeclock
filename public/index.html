@@ -26,9 +26,10 @@
 
       <!-- ============ VIEW: CLOCK (identify + in/out) ============ -->
       <section class="view active" id="view-clock">
-        <div class="jobsite">
-          <div class="pin"><span class="material-symbols-rounded">distance</span></div>
+        <div class="jobsite" id="jobsiteCard">
+          <div class="pin"><span class="material-symbols-rounded" id="jobsiteIcon">distance</span></div>
           <div><div class="label" data-i18n="job">Jobsite</div><div class="name" id="siteName">—</div></div>
+          <span class="material-symbols-rounded jobsite-go" id="jobsiteGo">chevron_right</span>
         </div>
 
         <div class="clock">
@@ -208,6 +209,19 @@
         <div class="spacer"></div>
         <button class="clock-btn out" id="matSave"><span class="material-symbols-rounded">receipt_long</span><span data-i18n="mat_save">Save &amp; clock out</span></button>
         <button class="linkbtn" id="matSkip" data-i18n="mat_skip">Skip &amp; clock out</button>
+      </section>
+
+      <!-- ============ VIEW: QR SCANNER ============ -->
+      <section class="view" id="view-scan">
+        <div class="sec-head">
+          <button class="backbtn" id="scanCancel"><span class="material-symbols-rounded">chevron_left</span><span data-i18n="cancel">Cancel</span></button>
+        </div>
+        <div class="sec-title" data-i18n="scan_title">Scan jobsite QR</div>
+        <div class="scan-stage">
+          <video id="scanVideo" playsinline muted></video>
+          <div class="scan-reticle"></div>
+        </div>
+        <div class="scan-hint" id="scanMsg" data-i18n="scan_hint">Point your camera at the QR posted at the jobsite.</div>
       </section>
 
       <!-- ============ VIEW: CHANGE PAY RATE (owner/independent) ============ -->
