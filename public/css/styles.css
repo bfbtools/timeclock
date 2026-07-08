@@ -25,13 +25,8 @@ body{font-family:'Libre Franklin',sans-serif;background:#34332c;color:var(--ink)
   border-radius:32px;overflow:hidden;position:relative;display:flex;flex-direction:column;
   box-shadow:0 30px 70px rgba(0,0,0,0.45);}
 
-/* On phones, fill the screen edge-to-edge instead of a floating mockup card.
-   (The framed card look is kept on wider screens.) */
-@media (max-width:500px){
-  html,body{height:auto;}
-  body{padding:0;background:var(--paper);align-items:stretch;justify-content:flex-start;min-height:100vh;min-height:100dvh;}
-  .screen{width:100%;max-width:100%;min-height:100vh;min-height:100dvh;border-radius:0;box-shadow:none;}
-}
+/* NOTE: phone (max-width:500px) overrides live at the END of this file so they
+   win over the base rules by source order. */
 
 /* ---- topbar ---- */
 .topbar{background:var(--forge);color:var(--paper);padding:18px 22px 16px;
@@ -243,3 +238,26 @@ select.empty{color:var(--placeholder);font-weight:500;}
 .demo-badge{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:7;background:var(--brass);color:#fff;
   font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 10px;border-radius:0 0 8px 8px;}
 .hidden{display:none !important;}
+
+/* ============================================================================
+   PHONE OVERRIDES — kept last so they win over the base rules above.
+   Full-bleed layout + tightened vertical spacing so the clock screen fits
+   without scrolling on small phones.
+   ============================================================================ */
+@media (max-width:500px){
+  html,body{height:auto;}
+  body{padding:0;background:var(--paper);align-items:stretch;justify-content:flex-start;min-height:100vh;min-height:100dvh;}
+  .screen{width:100%;max-width:100%;min-height:100vh;min-height:100dvh;border-radius:0;box-shadow:none;}
+  .topbar{padding:14px 20px 12px;}
+  .body{padding:14px 20px 12px;}
+  .jobsite{padding:12px 14px;}
+  .clock{padding:12px 0 16px;}      /* was 34/48 — trims jobsite→clock and clock→"who" gaps */
+  .clock .date{margin-top:7px;}
+  .ident-label{margin:2px 2px 7px;}
+  .flipcard{height:84px;}
+  .flipcard .leaf span{font-size:60px;line-height:84px;}
+  .flipampm{font-size:22px;}
+  .clock-btn{padding:16px;}
+  .hint{margin-top:8px;}
+  .linkbtn{margin-top:9px;}
+}
