@@ -59,9 +59,9 @@ body{font-family:'Libre Franklin',sans-serif;background:#34332c;color:var(--ink)
 .jobsite.scannable .pin{background:var(--ember);}
 .jobsite.scannable:active{transform:scale(0.99);}
 .jobsite.scannable .jobsite-go{display:block;}
-/* Gray X to clear the scanned jobsite (shown only when a site is set). */
+/* Gray X on the right to clear the scanned jobsite (shown only when a site is set). */
 .jobsite-clear{display:none;background:transparent;border:0;cursor:pointer;color:var(--placeholder);
-  padding:0;flex:0 0 auto;align-items:center;margin-left:-2px;}
+  padding:0;flex:0 0 auto;align-items:center;margin-left:auto;}
 .jobsite-clear .material-symbols-rounded{font-size:26px;}
 .jobsite-clear:active{color:var(--ink-soft);}
 .jobsite:not(.scannable) .jobsite-clear{display:flex;}
