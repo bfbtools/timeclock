@@ -37,7 +37,7 @@ bfb-timeclock/
 │   ├── invoice-preview.js      # GET  /api/invoice-preview — admin dry-run/manual run
 │   ├── material.js             # POST /api/material — owner materials + receipt
 │   ├── rate.js                 # POST /api/rate — change pay rate (RateLog + email)
-│   ├── projects.js             # GET  /api/projects — active sites + QR codes (open)
+│   ├── projects.js             # /api/projects — GET sites+QR (open); POST add/toggle (admin)
 │   └── lib/
 │       ├── sheets.js           # Google Sheets read/write helper
 │       ├── model.js            # domain helpers (roster, punch state, ET time)
@@ -66,7 +66,7 @@ in a local `.env` file (never committed) for `netlify dev`. See `.env.example`.
 | `SHEET_ID` | The datastore Sheet ID (`1CAVJjOG…MbPJfc`). |
 | `RESEND_API_KEY` | Resend API key (domain `backforty.builders` verified). |
 | `ACCOUNTING_EMAIL` | `accounting@backforty.builders` (from/copy address). |
-| `ADMIN_TOKEN` | Long random string; gates `/api/invoice-preview` (dry-run/manual invoicing). |
+| `ADMIN_TOKEN` | Long random string; gates the invoice preview and adding/toggling projects on /qr.html. |
 | `DRIVE_FOLDER_ID` | *(optional)* Drive folder for receipt photos; unset = materials save without a receipt link. |
 | `SITE_URL` | *(optional)* Public base URL for QR links; defaults to the production domain. |
 

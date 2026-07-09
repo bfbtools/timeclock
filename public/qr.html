@@ -5,63 +5,305 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BFB Time Clock — Jobsite QR Codes</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Libre+Franklin:wght@400;600;700&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,600,1,0&display=block">
 <style>
-  :root{--ink:#3b3830;--soft:#6b6459;--line:#efe0ca;--paper:#f7f0e6;--forge:#2d2e28;--ember:#db563d;--pine:#2e5e4e;--brass:#db942c;--kraft:#d6b07b;}
+  :root{--ink:#2d2e28;--soft:#6b6459;--line:#efe0ca;--kraft:#d6b07b;--ember:#db563d;--ember-h:#bb4832;--brass:#db942c;--pine:#2e5e4e;--paper:#f7f0e6;--forge:#2d2e28;}
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Libre Franklin',sans-serif;background:#efe7d8;color:var(--ink);padding:24px;}
-  .bar{max-width:1000px;margin:0 auto 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
-  .bar h1{font-family:'Barlow Condensed';font-weight:700;font-size:28px;letter-spacing:.5px;}
-  .bar .sub{color:var(--soft);font-size:13px;margin-top:2px;}
-  .tools{display:flex;gap:10px;align-items:center;}
-  input{font-family:'Libre Franklin';font-size:14px;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;background:#fff;}
-  button{font-family:'Libre Franklin';font-weight:700;font-size:12px;letter-spacing:1px;text-transform:uppercase;
-    background:var(--ember);color:#fff;border:0;border-radius:8px;padding:11px 18px;cursor:pointer;}
-  .msg{max-width:1000px;margin:0 auto;color:var(--soft);font-size:14px;padding:12px 0;}
-  .grid{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;}
-  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px;text-align:center;break-inside:avoid;}
-  .card .site{font-family:'Barlow Condensed';font-weight:700;font-size:24px;line-height:1.05;color:var(--ink);}
-  .card .brand{font-size:10px;font-weight:700;letter-spacing:3px;color:var(--kraft);text-transform:uppercase;margin-bottom:10px;}
-  .card img{width:100%;max-width:260px;height:auto;margin:12px auto;display:block;}
-  .card .cta{font-weight:700;font-size:13px;color:var(--pine);letter-spacing:.5px;}
-  .card .cta .es{color:var(--soft);font-weight:600;}
-  .card .url{font-family:'Roboto Mono',monospace;font-size:10px;color:var(--soft);word-break:break-all;margin-top:10px;}
-  .card .rule{height:4px;border-radius:3px;margin:12px auto 0;max-width:200px;background:linear-gradient(90deg,var(--ember) 0 40%,var(--brass) 40% 70%,var(--pine) 70% 100%);}
-  @media print{ body{background:#fff;padding:0;} .bar,.tools,.msg{display:none;} .grid{gap:0;} .card{border:0;page-break-inside:avoid;padding:40px;} }
+  .material-symbols-rounded{font-family:'Material Symbols Rounded';font-weight:normal;line-height:1;text-transform:none;vertical-align:middle;}
+  body{font-family:'Libre Franklin',sans-serif;background:#efe7d8;color:var(--ink);padding:22px;}
+
+  /* ---------- admin (screen) ---------- */
+  .bar{max-width:1080px;margin:0 auto 18px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  .bar h1{font-family:'Barlow Condensed';font-weight:700;font-size:30px;letter-spacing:.5px;line-height:1;}
+  .bar .sub{color:var(--soft);font-size:13px;margin-top:3px;}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;}
+  button{font-family:'Libre Franklin';font-weight:700;font-size:12px;letter-spacing:1px;text-transform:uppercase;border:0;border-radius:9px;padding:12px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;}
+  .btn-primary{background:var(--forge);color:#fff;}
+  .btn-add{background:var(--ember);color:#fff;}
+  .btn-add:hover{background:var(--ember-h);}
+  .btn-ghost{background:#fff;color:var(--ink);border:1.5px solid var(--line);}
+  .msg{max-width:1080px;margin:0 auto 10px;color:var(--soft);font-size:13px;}
+  .grid{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;}
+  .qcard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center;display:flex;flex-direction:column;}
+  .qcard.inactive{opacity:.55;background:#f4efe6;}
+  .qcard .site{font-family:'Barlow Condensed';font-weight:700;font-size:21px;line-height:1.05;color:var(--ink);min-height:44px;display:flex;align-items:center;justify-content:center;}
+  .qcard img{width:100%;max-width:180px;height:auto;margin:8px auto;display:block;}
+  .qcard.inactive img{filter:grayscale(1);}
+  .qcard .url{font-family:'Roboto Mono';font-size:10px;color:var(--soft);word-break:break-all;margin-bottom:10px;}
+  .qcard .shopflag{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--brass);margin-bottom:6px;}
+  .qcard .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;padding-top:10px;border-top:1px solid var(--line);}
+  .togglewrap{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--soft);}
+  .switch{position:relative;width:40px;height:22px;flex:0 0 40px;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider{position:absolute;inset:0;background:#c9c1b3;border-radius:22px;transition:.15s;cursor:pointer;}
+  .slider::before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s;}
+  .switch input:checked + .slider{background:var(--pine);}
+  .switch input:checked + .slider::before{transform:translateX(18px);}
+  .btn-print{background:transparent;color:var(--ember);border:1.5px solid var(--ember);padding:8px 11px;font-size:11px;}
+  .btn-print:hover{background:var(--ember);color:#fff;}
+
+  /* ---------- add-jobsite modal ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(45,46,40,.55);display:none;align-items:flex-start;justify-content:center;padding:24px;overflow:auto;z-index:20;}
+  .overlay.show{display:flex;}
+  .modal{background:var(--paper);border-radius:16px;max-width:440px;width:100%;padding:24px;margin-top:24px;}
+  .modal h2{font-family:'Barlow Condensed';font-weight:700;font-size:26px;}
+  .modal .note{font-size:13px;color:var(--soft);margin-top:4px;}
+  .field{margin-top:14px;}
+  .field label{display:block;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--soft);margin-bottom:6px;}
+  .field input{width:100%;font-family:'Libre Franklin';font-weight:600;font-size:16px;color:var(--ink);background:#fff;border:1.5px solid var(--line);border-radius:9px;padding:12px 14px;}
+  .field input:focus{outline:none;border-color:var(--brass);}
+  .field .hint{font-size:11px;color:var(--soft);margin-top:4px;}
+  .gcwrap{display:none;}
+  .gcwrap.show{display:block;}
+  .checkrow{display:flex;align-items:center;gap:10px;margin-top:16px;font-weight:600;font-size:14px;}
+  .modal .buttons{display:flex;gap:10px;margin-top:20px;}
+  .modal .err{color:var(--ember);font-size:13px;font-weight:600;margin-top:10px;min-height:18px;}
+
+  @media print{ body{background:#fff;} .admin,.overlay{display:none !important;} }
+
+  /* ============================ PRINT OUTPUT ============================ */
+  .print-root{display:none;}
+  @media print{ .print-root{display:block;} @page{size:letter;margin:0;} }
+
+  /* -- shop board (Print All) -- */
+  .board{padding:0.4in;}
+  .board-top{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:3px solid var(--ink);padding-bottom:9px;}
+  .board-top .l1{font-family:'Barlow Condensed';font-weight:700;font-size:28px;line-height:1;}
+  .board-top .l2{font-weight:700;font-size:10px;letter-spacing:4px;color:var(--kraft);text-transform:uppercase;margin-top:3px;}
+  .board-top .tag{font-family:'Barlow Condensed';font-weight:700;font-size:18px;color:var(--soft);}
+  .board-rule{height:4px;background:linear-gradient(90deg,var(--ember) 0 40%,var(--brass) 40% 70%,var(--pine) 70% 100%);}
+  .board-note{background:#faf4ea;border:1px solid var(--line);border-radius:8px;padding:9px 14px;margin:12px 0 14px;}
+  .board-note .es{font-weight:700;font-size:13px;color:var(--ink);}
+  .board-note .en{font-size:11.5px;color:var(--soft);font-style:italic;margin-top:2px;}
+  .board-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;}
+  .bcard{border:1px solid var(--line);border-radius:10px;padding:9px 8px 8px;text-align:center;page-break-inside:avoid;}
+  .bcard .site{font-family:'Barlow Condensed';font-weight:700;font-size:16px;line-height:1.02;min-height:32px;display:flex;align-items:center;justify-content:center;}
+  .bcard img{width:100%;max-width:132px;margin:4px auto 3px;display:block;}
+  .bcard .es{font-size:9px;font-weight:700;color:var(--ink);}
+  .bcard .en{font-size:8px;color:var(--soft);font-style:italic;}
+  .bcard .rule{height:3px;border-radius:2px;max-width:80px;margin:6px auto 0;background:linear-gradient(90deg,var(--ember) 0 40%,var(--brass) 40% 70%,var(--pine) 70% 100%);}
+  .board-foot{margin-top:12px;font-size:10px;color:var(--soft);text-align:center;}
+
+  /* -- single poster (Print This Jobsite) -- */
+  .poster{min-height:11in;display:flex;flex-direction:column;}
+  .poster .band{background:#2d2e28;color:#fff;padding:26px 40px;display:flex;align-items:center;justify-content:space-between;}
+  .poster .band .l1{font-family:'Barlow Condensed';font-weight:700;font-size:40px;letter-spacing:.5px;line-height:1;}
+  .poster .band .l2{font-weight:700;font-size:13px;letter-spacing:6px;color:var(--kraft);text-transform:uppercase;margin-top:4px;}
+  .poster .band .tag{font-family:'Barlow Condensed';font-weight:700;font-size:20px;color:var(--kraft);text-transform:uppercase;text-align:right;line-height:1.1;}
+  .poster .band .tag small{font-size:12px;letter-spacing:2px;color:#9a825d;}
+  .poster .rule{height:6px;background:linear-gradient(90deg,var(--ember) 0 40%,var(--brass) 40% 70%,var(--pine) 70% 100%);}
+  .poster .pbody{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:32px 40px 28px;}
+  .poster .lbl{font-weight:700;font-size:15px;letter-spacing:4px;text-transform:uppercase;color:var(--pine);}
+  .poster .lbl .en2{color:var(--soft);}
+  .poster .site{font-family:'Barlow Condensed';font-weight:700;font-size:62px;line-height:1;margin:5px 0 20px;}
+  .poster .qrbox{border:3px solid var(--ink);border-radius:22px;padding:20px;}
+  .poster .qrbox img{width:3.6in;height:3.6in;display:block;}
+  .poster .cta .es{font-family:'Barlow Condensed';font-weight:700;font-size:46px;line-height:1;color:var(--ember);text-transform:uppercase;margin-top:24px;}
+  .poster .cta .en{font-weight:700;font-size:18px;color:var(--soft);text-transform:uppercase;letter-spacing:1px;margin-top:5px;}
+  .poster .inst{margin-top:24px;width:100%;max-width:6.5in;}
+  .poster .inst .prow{display:flex;gap:16px;align-items:center;text-align:left;padding:14px 20px;border:1px solid var(--line);border-radius:14px;background:#faf4ea;margin-bottom:12px;}
+  .poster .inst .ic{width:48px;height:48px;flex:0 0 48px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;}
+  .poster .inst .ic.ember{background:var(--ember);} .poster .inst .ic.pine{background:var(--pine);}
+  .poster .inst .ic .material-symbols-rounded{font-size:26px;}
+  .poster .inst .es{font-weight:700;font-size:18px;line-height:1.2;}
+  .poster .inst .en{font-size:13px;color:var(--soft);font-style:italic;margin-top:3px;}
+  .poster .pfoot{margin-top:auto;padding-top:16px;font-family:'Roboto Mono';font-size:13px;color:var(--soft);}
 </style>
 </head>
 <body>
-  <div class="bar">
-    <div><h1>Jobsite QR Codes</h1><div class="sub">Print one per site and post it at the jobsite. Workers scan to clock in.</div></div>
-    <div class="tools">
-      <button id="print" style="background:var(--forge)">Print</button>
+  <div class="admin">
+    <div class="bar">
+      <div>
+        <h1>Jobsite QR Codes</h1>
+        <div class="sub">Print codes to post at jobsites · toggle a project active/inactive · add a new one.</div>
+      </div>
+      <div class="actions">
+        <button class="btn-add" id="addBtn"><span class="material-symbols-rounded">add</span> Add New Jobsite/Project</button>
+        <button class="btn-primary" id="printAllBtn"><span class="material-symbols-rounded">print</span> Print All Jobsites</button>
+      </div>
+    </div>
+    <div class="msg" id="msg">Loading…</div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <!-- Add jobsite modal -->
+  <div class="overlay" id="addOverlay">
+    <div class="modal">
+      <h2>Add New Jobsite / Project</h2>
+      <div class="note">Adds a row to the Projects tab and a QR card here.</div>
+      <div class="field"><label>Site name</label><input id="fSite" autocomplete="off" placeholder="e.g. French 3"></div>
+      <div class="field"><label>QR word (in the link)</label><input id="fQr" autocomplete="off" placeholder="french3">
+        <div class="hint">Used in the QR link: …/?site=<b><span id="qrPreview">french3</span></b>. Lowercase, no spaces.</div></div>
+      <div class="field"><label>Buildertrend project (optional)</label><input id="fBt" autocomplete="off"></div>
+      <div class="checkrow"><label class="switch"><input type="checkbox" id="fBills"><span class="slider"></span></label> Bills to a GC?</div>
+      <div class="gcwrap" id="gcWrap">
+        <div class="field"><label>GC name</label><input id="fGcName" autocomplete="off"></div>
+        <div class="field"><label>GC rate ($/hr)</label><input id="fGcRate" inputmode="decimal" placeholder="68"></div>
+      </div>
+      <div class="err" id="addErr"></div>
+      <div class="buttons">
+        <button class="btn-add" id="addSave"><span class="material-symbols-rounded">check</span> Create</button>
+        <button class="btn-ghost" id="addCancel">Cancel</button>
+      </div>
     </div>
   </div>
-  <div class="msg" id="msg">Loading…</div>
-  <div class="grid" id="grid"></div>
+
+  <div class="print-root" id="printRoot"></div>
 
 <script>
   const $ = (id) => document.getElementById(id);
+  let PROJECTS = [];
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+  /* ---------------- admin token (only for add/toggle) ---------------- */
+  function getToken(force) {
+    let t = localStorage.getItem('bfb_admin_token') || '';
+    if (!t || force) {
+      t = (prompt('Enter your admin token (only needed to add or change projects):') || '').trim();
+      if (t) localStorage.setItem('bfb_admin_token', t);
+    }
+    return t;
+  }
+  async function adminPost(payload) {
+    let token = getToken(false);
+    if (!token) throw new Error('Admin token required');
+    let r = await fetch('/api/projects', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-token': token }, body: JSON.stringify(payload) });
+    if (r.status === 401) { // bad token — re-prompt once
+      token = getToken(true);
+      r = await fetch('/api/projects', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-token': token }, body: JSON.stringify(payload) });
+    }
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || 'Failed');
+    return data;
+  }
+
+  /* ---------------- load + render cards ---------------- */
   async function load() {
     $('msg').textContent = 'Loading…'; $('grid').innerHTML = '';
     try {
       const r = await fetch('/api/projects');
       const data = await r.json();
       if (!data.ok) { $('msg').textContent = data.error || 'Failed to load.'; return; }
-      if (!data.projects.length) { $('msg').textContent = 'No active projects with a QRParam found.'; return; }
-      $('msg').textContent = data.count + ' site(s) · base ' + data.base;
-      $('grid').innerHTML = data.projects.map((p) => `
-        <div class="card">
-          <div class="brand">Back Forty Builders</div>
-          <div class="site">${p.siteName}</div>
-          <img src="${p.qr}" alt="QR for ${p.siteName}">
-          <div class="cta">Scan to clock in <span class="es">· Escanea para marcar</span></div>
-          <div class="rule"></div>
-          <div class="url">${p.url}</div>
-        </div>`).join('');
+      PROJECTS = data.projects;
+      render();
     } catch (e) { $('msg').textContent = 'Error: ' + e.message; }
   }
-  $('print').addEventListener('click', () => window.print());
+  function sortProjects() {
+    PROJECTS.sort((a, b) => (a.active === b.active ? a.siteName.localeCompare(b.siteName) : (a.active ? -1 : 1)));
+  }
+  function render() {
+    sortProjects();
+    const activeCount = PROJECTS.filter((p) => p.active && !p.isShop).length;
+    $('msg').textContent = `${PROJECTS.length} project(s) · ${activeCount} on the shop board`;
+    $('grid').innerHTML = PROJECTS.map((p, i) => `
+      <div class="qcard ${p.active ? '' : 'inactive'}" data-i="${i}">
+        ${p.isShop ? '<div class="shopflag">Shop — not on board</div>' : ''}
+        <div class="site">${esc(p.siteName)}</div>
+        <img src="${p.qr}" alt="QR ${esc(p.siteName)}">
+        <div class="url">${esc(p.url)}</div>
+        <div class="row">
+          <label class="togglewrap"><span class="switch"><input type="checkbox" ${p.active ? 'checked' : ''} data-toggle="${i}"><span class="slider"></span></span>${p.active ? 'Active' : 'Inactive'}</label>
+          <button class="btn-print" data-print="${i}"><span class="material-symbols-rounded">print</span> Print</button>
+        </div>
+      </div>`).join('');
+  }
+
+  /* ---------------- toggle active ---------------- */
+  async function toggle(i, active) {
+    const p = PROJECTS[i];
+    try {
+      await adminPost({ op: 'active', projectId: p.projectId, active });
+      p.active = active;
+      render();
+    } catch (e) { alert(e.message); render(); /* revert visual */ }
+  }
+
+  /* ---------------- add new jobsite ---------------- */
+  const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  function openAdd() {
+    ['fSite', 'fQr', 'fBt', 'fGcName', 'fGcRate'].forEach((id) => $(id).value = '');
+    $('fBills').checked = false; $('gcWrap').classList.remove('show'); $('addErr').textContent = '';
+    $('qrPreview').textContent = 'french3';
+    $('addOverlay').classList.add('show');
+  }
+  async function submitAdd() {
+    const siteName = $('fSite').value.trim();
+    const qrParam = slug($('fQr').value.trim() || siteName);
+    if (!siteName) { $('addErr').textContent = 'Enter a site name.'; return; }
+    if (!qrParam) { $('addErr').textContent = 'Enter a QR word.'; return; }
+    $('addErr').textContent = 'Saving…';
+    try {
+      const data = await adminPost({
+        op: 'create', siteName, qrParam,
+        btProject: $('fBt').value.trim(),
+        billsToGC: $('fBills').checked,
+        gcName: $('fGcName').value.trim(),
+        gcRate: $('fGcRate').value.trim(),
+      });
+      PROJECTS.push(data.project);
+      $('addOverlay').classList.remove('show');
+      render();
+    } catch (e) { $('addErr').textContent = e.message; }
+  }
+
+  /* ---------------- printing ---------------- */
+  function boardCard(p) {
+    return `<div class="bcard"><div class="site">${esc(p.siteName)}</div>
+      <img src="${p.qr}" alt=""><div class="es">Escanea para marcar</div><div class="en">Scan to clock in</div><div class="rule"></div></div>`;
+  }
+  function printAll() {
+    const list = PROJECTS.filter((p) => p.active && !p.isShop);
+    if (!list.length) { alert('No active jobsites to print.'); return; }
+    $('printRoot').innerHTML = `<div class="board">
+      <div class="board-top"><div><div class="l1">BACK FORTY</div><div class="l2">Builders · Marca tu Proyecto</div></div><div class="tag">En el taller</div></div>
+      <div class="board-rule"></div>
+      <div class="board-note"><div class="es">¿En el taller pero trabajando en un proyecto? Escanea el código de ese proyecto para marcar tu entrada en la obra correcta.</div>
+        <div class="en">At the shop but working a specific job today? Scan that project's code below to clock in to the right jobsite.</div></div>
+      <div class="board-grid">${list.map(boardCard).join('')}</div>
+      <div class="board-foot">${list.length} proyectos · timeclock.backforty.builders</div>
+    </div>`;
+    window.print();
+  }
+  function printOne(p) {
+    $('printRoot').innerHTML = `<div class="poster">
+      <div class="band"><div><div class="l1">BACK FORTY BUILDERS</div><div class="l2">Reloj de Entrada · Time Clock</div></div>
+        <div class="tag">Marca Aquí<br><small>Clock In Here</small></div></div>
+      <div class="rule"></div>
+      <div class="pbody">
+        <div class="lbl">Obra <span class="en2">· Jobsite</span></div>
+        <div class="site">${esc(p.siteName)}</div>
+        <div class="qrbox"><img src="${p.qr}" alt=""></div>
+        <div class="cta"><div class="es">Escanea para marcar entrada / salida</div><div class="en">Scan to clock in / out</div></div>
+        <div class="inst">
+          <div class="prow"><div class="ic ember"><span class="material-symbols-rounded">photo_camera</span></div>
+            <div><div class="es">Escanea este código aquí en la obra para marcar entrada o salida.</div>
+              <div class="en">You must scan this code here at the jobsite to clock in or out.</div></div></div>
+          <div class="prow"><div class="ic pine"><span class="material-symbols-rounded">edit</span></div>
+            <div><div class="es">¿Solo corriges tus horas? Hazlo cuando quieras en timeclock.backforty.builders</div>
+              <div class="en">Just fixing your hours? Do that anytime at timeclock.backforty.builders</div></div></div>
+        </div>
+        <div class="pfoot">${esc(p.url)}</div>
+      </div>
+    </div>`;
+    window.print();
+  }
+
+  /* ---------------- wire up ---------------- */
+  $('grid').addEventListener('click', (e) => {
+    const pb = e.target.closest('[data-print]'); if (pb) { printOne(PROJECTS[+pb.dataset.print]); return; }
+  });
+  $('grid').addEventListener('change', (e) => {
+    const t = e.target.closest('[data-toggle]'); if (t) toggle(+t.dataset.toggle, t.checked);
+  });
+  $('printAllBtn').addEventListener('click', printAll);
+  $('addBtn').addEventListener('click', openAdd);
+  $('addCancel').addEventListener('click', () => $('addOverlay').classList.remove('show'));
+  $('addSave').addEventListener('click', submitAdd);
+  $('fBills').addEventListener('change', (e) => $('gcWrap').classList.toggle('show', e.target.checked));
+  $('fSite').addEventListener('input', () => { if (!$('fQr').value.trim()) $('qrPreview').textContent = slug($('fSite').value) || 'french3'; });
+  $('fQr').addEventListener('input', () => $('qrPreview').textContent = slug($('fQr').value) || 'french3');
+  window.addEventListener('afterprint', () => { $('printRoot').innerHTML = ''; });
+
   load();
 </script>
 </body>
