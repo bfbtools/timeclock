@@ -65,6 +65,7 @@ const I = {
     rateBad: 'Enter a valid rate.',
     err: 'Something went wrong. Try again.', errName: 'Enter your first and last name.',
     errSub: 'Pick your company.', noSite: 'Scan Jobsite QR Code to Clock In.',
+    noSiteOut: 'Scan Jobsite QR Code to Clock Out.',
     noSiteShort: 'Scan the jobsite QR',
   },
   es: {
@@ -126,6 +127,7 @@ const I = {
     rateBad: 'Ingresa una tarifa válida.',
     err: 'Algo salió mal. Inténtalo de nuevo.', errName: 'Escribe tu nombre y apellido.',
     errSub: 'Selecciona tu compañía.', noSite: 'Escanea el código QR de la obra para marcar entrada.',
+    noSiteOut: 'Escanea el código QR de la obra para marcar salida.',
     noSiteShort: 'Escanea el QR de la obra',
   },
 };
@@ -386,8 +388,11 @@ function applyI18n() {
 // Jobsite banner text — depends on language, so re-run on every language change.
 function updateSiteName() {
   if (!state.data) return;
+  // At the scan-home, prompt for the next action: clock OUT if they're on the
+  // clock, otherwise clock IN.
+  const noSiteMsg = (state.worker && state.worker.status === 'in') ? t('noSiteOut') : t('noSite');
   $('siteName').textContent = state.data.project?.siteName
-    || (state.noSite ? t('noSite') : (lang === 'en' ? 'Unknown site' : 'Obra desconocida'));
+    || (state.noSite ? noSiteMsg : (lang === 'en' ? 'Unknown site' : 'Obra desconocida'));
   // With no jobsite, the card becomes a tappable "scan the QR" button (camera icon).
   $('jobsiteCard').classList.toggle('scannable', state.noSite);
   $('jobsiteIcon').textContent = state.noSite ? 'photo_camera' : 'distance';
@@ -642,9 +647,10 @@ function showConfirm(action, atIso, siteOverride) {
 }
 function closeConfirm() {
   $('confirm').classList.remove('show');
-  // After clocking OUT, return to the "scan a jobsite" home so the next start
-  // requires a fresh scan (presence proof). Clock-in / switch / submit stay put.
-  if (state.lastAction === 'OUT') {
+  // Every clock punch (IN or OUT) returns to the "scan a jobsite" home, so the
+  // NEXT punch needs its own fresh scan — presence proof for both in and out.
+  // (Submit Edits stays put.)
+  if (state.lastAction === 'IN' || state.lastAction === 'OUT') {
     state.site = null;
     if (state.data) state.data.project = null;
     state.noSite = true;
