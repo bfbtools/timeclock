@@ -4,7 +4,8 @@
 // and date grouping needs no timezone math (the date part IS the ET date).
 
 import { readTab, appendRow, updateRow } from './sheets.js';
-import { TABS, TIMEZONE } from './config.js';
+import { TABS, TIMEZONE, EDIT_WINDOW_DAYS } from './config.js';
+import { mondayOf, weekRange, dayKey, pairDay } from './rollup.js';
 
 /* ----------------------------------------------------------- time (ET) */
 const etFmt = new Intl.DateTimeFormat('en-CA', {
@@ -23,6 +24,16 @@ export function etStamp(date = new Date()) {
 }
 export function etToday() {
   return etParts().date;
+}
+// Earliest ET date a worker may still manually add/edit from the Time Log — a
+// rolling window ending today (EDIT_WINDOW_DAYS inclusive). Older days lock.
+export function editWindowStart(todayISO = etToday()) {
+  const d = new Date(todayISO + 'T00:00:00');
+  d.setDate(d.getDate() - (EDIT_WINDOW_DAYS - 1));
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 // Date portion of a stored "YYYY-MM-DD HH:mm:ss" stamp.
 export function stampDate(stamp) {
@@ -51,6 +62,25 @@ export async function getSubsById() {
 export async function getWorkerById(id) {
   const { rows } = await readTab(TABS.WORKERS);
   return rows.find((w) => String(w.WorkerID).trim() === String(id).trim()) || null;
+}
+
+// Authorize an edit to `targetId`'s data. Self-edit: the target's own PIN.
+// Delegated edit: an `actingId` who must be an OWNER in the SAME sub as the
+// target, verified by the ACTING worker's PIN. Returns { target, acting } on
+// success, or { error, status } to return directly.
+export async function authEdit({ targetId, actingId, pin }) {
+  const target = await getWorkerById(targetId);
+  if (!target) return { error: 'Worker not found', status: 404 };
+  const delegated = actingId && String(actingId).trim() && String(actingId).trim() !== String(targetId).trim();
+  const acting = delegated ? await getWorkerById(actingId) : target;
+  if (!acting) return { error: 'Worker not found', status: 404 };
+  if (String(acting.PIN || '').trim() !== String(pin || '').trim()) return { error: 'Wrong PIN', status: 401 };
+  if (delegated) {
+    const isOwner = String(acting.Type || '').trim().toLowerCase() === 'owner';
+    const sameSub = String(acting.SubID).trim() === String(target.SubID).trim();
+    if (!isOwner || !sameSub) return { error: 'Not authorized to edit this worker', status: 403 };
+  }
+  return { target, acting };
 }
 
 export async function getWorkersBySub(subId) {
@@ -111,6 +141,21 @@ export function computeStatus(workerPunches) {
   };
 }
 
+// Current Mon–Sun week hours for one worker (shown on the clock screen). Not
+// PIN-gated — it's a single aggregate, unlike the detailed Time Log/invoice.
+export function currentWeekHours(workerPunches, weekStart, weekEnd) {
+  const byDay = new Map();
+  (workerPunches || []).forEach((p) => {
+    const d = dayKey(p.Timestamp);
+    if (d < weekStart || d > weekEnd) return;
+    if (!byDay.has(d)) byDay.set(d, []);
+    byDay.get(d).push(p);
+  });
+  let minutes = 0;
+  byDay.forEach((dp) => { minutes += pairDay(dp).minutes; });
+  return Math.round((minutes / 60) * 100) / 100;
+}
+
 // Build the /api/site worker list (name, sub, state) for all active workers.
 export async function buildRoster() {
   const [{ rows: workers }, { rows: punches }, subs] = await Promise.all([
@@ -122,8 +167,12 @@ export async function buildRoster() {
     if (!byWorker.has(k)) byWorker.set(k, []);
     byWorker.get(k).push(p);
   });
+  const today = etToday();
+  const weekStart = mondayOf(today);
+  const { end: weekEnd } = weekRange(weekStart);
   return workers.filter(isActive).map((w) => {
-    const st = computeStatus(byWorker.get(String(w.WorkerID).trim()) || []);
+    const punchList = byWorker.get(String(w.WorkerID).trim()) || [];
+    const st = computeStatus(punchList);
     const sub = subs.get(String(w.SubID).trim());
     return {
       id: String(w.WorkerID).trim(),
@@ -134,6 +183,8 @@ export async function buildRoster() {
       status: st.status,
       openPriorDate: st.openPriorDate,
       openInfo: st.openInfo,
+      todayHours: currentWeekHours(punchList, today, today), // single-day range
+      weekHours: currentWeekHours(punchList, weekStart, weekEnd),
     };
   });
 }
@@ -143,7 +194,10 @@ export async function setWorkerPin(worker, pin) {
   return updateRow(TABS.WORKERS, worker._rowNumber, { PIN: String(pin) });
 }
 
-export async function appendPunch({ project, worker, sub, action, stamp, missed }) {
+// `source` overrides the default IN/OUT source label when given (e.g. 'switch'
+// for a "Switch to Different Jobsite" pair, whose destination IN is not a
+// scanned presence punch). Otherwise: manual (missed-punch recovery) or scan.
+export async function appendPunch({ project, worker, sub, action, stamp, missed, source }) {
   const row = {
     PunchID: `P-${Date.now()}-${Math.floor(performance.now() % 1000)}`,
     Timestamp: stamp,
@@ -153,7 +207,7 @@ export async function appendPunch({ project, worker, sub, action, stamp, missed 
     WorkerID: String(worker.WorkerID).trim(),
     WorkerName: displayName(worker),
     Action: action,
-    Source: missed ? 'manual' : 'scan',
+    Source: source || (missed ? 'manual' : 'scan'),
     Edited: missed ? 'Y' : '',
   };
   await appendRow(TABS.PUNCHES, row);

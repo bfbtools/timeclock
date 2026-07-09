@@ -45,6 +45,7 @@
 
         <div class="clock">
           <div class="clockwrap">
+            <div class="date" id="date">—</div>
             <div class="flipclock">
               <div class="flipcard" id="hh" data-v="00">
                 <div class="leaf top s-top"><span>00</span></div>
@@ -60,11 +61,17 @@
               </div>
               <div class="flipampm" id="ampm">A<br>M</div>
             </div>
-            <div class="date" id="date">—</div>
+            <div class="daterow">
+              <div class="todaytotal hidden" id="todayTotal"></div>
+              <div class="weektotal hidden" id="weekTotal"></div>
+            </div>
           </div>
         </div>
 
-        <div class="ident-label" data-i18n="who">Who are you?</div>
+        <div class="ident-row">
+          <div class="ident-label" data-i18n="who">Who are you?</div>
+          <button class="linkbtn notyou-link hidden" id="notYouBtn" data-i18n="notyou">Not you?</button>
+        </div>
 
         <!-- remembered-device quick pick (shown when localStorage has a worker) -->
         <div class="remembered hidden" id="remembered">
@@ -80,7 +87,6 @@
             <option value="" selected disabled data-i18n="sel">Select your name</option>
           </select>
         </div>
-        <button class="linkbtn notyou-link hidden" id="notYouBtn" data-i18n="notyou">Not you?</button>
 
         <div class="spacer"></div>
 
@@ -89,10 +95,11 @@
           <span id="mainBtnLabel" data-i18n="sel">Select your name</span>
         </button>
         <div class="hint" id="hint" data-i18n="hint">Scanned at the jobsite • tap to start your day</div>
+        <button class="clock-btn ghost hidden" id="switchBtn"><span class="material-symbols-rounded">swap_horiz</span><span data-i18n="switchJob">Switch to Different Jobsite</span></button>
         <div class="linkrow">
-          <button class="linkbtn" id="secondaryBtn" data-i18n="myhours">View my hours</button>
+          <button class="linkbtn" id="secondaryBtn">View my hours</button>
           <span class="linksep" aria-hidden="true">|</span>
-          <button class="linkbtn" id="fallbackBtn" data-i18n="notlisted">My name isn't here</button>
+          <button class="linkbtn" id="fallbackBtn">My name isn't here</button>
         </div>
       </section>
 
@@ -133,7 +140,10 @@
         </div>
         <div class="field">
           <label data-i18n="rec_time">Clock-out time</label>
-          <input type="time" id="recTime">
+          <div class="timepick">
+            <div class="select-shell"><select id="recTime" class="time-sel"></select><span class="material-symbols-rounded select-chev">expand_more</span></div>
+            <div class="select-shell ampm"><select id="recTimeAP" class="ampm-sel"><option>AM</option><option>PM</option></select><span class="material-symbols-rounded select-chev">expand_more</span></div>
+          </div>
         </div>
         <div class="spacer"></div>
         <button class="clock-btn out" id="recSubmit"><span class="material-symbols-rounded">history</span><span data-i18n="rec_save">Save clock-out</span></button>
@@ -158,40 +168,65 @@
       </section>
 
       <!-- ============ VIEW: TIME LOG (employees) ============ -->
+      <!-- Header stays on top; days scroll in the middle; Submit Edits is pinned
+           to the bottom with a drop shadow. -->
       <section class="view" id="view-timelog">
-        <div class="sec-head">
-          <button class="backbtn" id="tlBack"><span class="material-symbols-rounded">chevron_left</span><span data-i18n="back">Back</span></button>
+        <div class="tl-head">
+          <div class="sec-head">
+            <button class="backbtn" id="tlBack"><span class="material-symbols-rounded">chevron_left</span><span data-i18n="back">Back</span></button>
+          </div>
+          <div class="sec-title" id="tlTitle" data-i18n="tl_title">My time</div>
+          <div class="sec-sub" id="tlWeek">—</div>
+          <div class="tl-warn hidden" id="tlWarn"></div>
+          <div class="tl-edithint" id="tlEditHint"></div>
         </div>
-        <div class="sec-title" id="tlTitle" data-i18n="tl_title">My time</div>
-        <div class="sec-sub" id="tlWeek">—</div>
-        <div class="locked-note hidden" id="tlLocked"><span class="material-symbols-rounded">lock</span><span data-i18n="tl_locked">Locked — the week closed Saturday</span></div>
-        <div class="tl-edithint" id="tlEditHint"></div>
-        <div class="tl-days" id="tlDays"></div>
-        <div class="tl-total"><span data-i18n="tl_total">Week total</span><span class="big" id="tlTotal">0h</span></div>
-        <div class="tl-flags" id="tlFlags"></div>
-        <div class="spacer"></div>
-        <button class="clock-btn" id="tlAdd"><span class="material-symbols-rounded">more_time</span><span data-i18n="tl_add">Add a missed punch</span></button>
+        <div class="tl-scroll">
+          <div class="tl-days" id="tlDays"></div>
+          <div class="tl-total"><span data-i18n="tl_total">Total (2 wk)</span><span class="big" id="tlTotal">0h</span></div>
+          <div class="tl-flags" id="tlFlags"></div>
+        </div>
+        <div class="tl-foot">
+          <button class="clock-btn" id="tlSubmit"><span class="material-symbols-rounded">check_circle</span><span data-i18n="tl_submit">Submit Edits</span></button>
+        </div>
       </section>
 
-      <!-- ============ VIEW: ADD MISSED PUNCH ============ -->
+      <!-- ============ VIEW: ADD HOURS / EDIT A PUNCH ============ -->
+      <!-- Add mode: two time fields (Clock In + Clock Out) for the chosen day.
+           Edit mode: one time field; the title says which punch you're editing. -->
       <section class="view" id="view-addpunch">
         <div class="sec-head">
           <button class="backbtn" id="apBack"><span class="material-symbols-rounded">chevron_left</span><span data-i18n="back">Back</span></button>
         </div>
-        <div class="sec-title" id="apTitle" data-i18n="ap_title">Add a missed punch</div>
+        <div class="sec-title" id="apTitle" data-i18n="tl_addHours">Add Hours</div>
+        <div class="sec-sub" id="apDayLabel">—</div>
         <div class="form-note" data-i18n="ap_note">This will be flagged as a manual entry for the office to review.</div>
-        <div class="field">
-          <label data-i18n="ap_which">Clock in or out?</label>
-          <div class="seg" id="apSeg">
-            <button type="button" data-act="IN" class="on" data-i18n="clockIn">Clock In</button>
-            <button type="button" data-act="OUT" data-i18n="clockOut">Clock Out</button>
+        <!-- ADD mode: both times at once -->
+        <div id="apAddFields">
+          <div class="field"><label data-i18n="ap_in">Clock In</label>
+            <div class="timepick">
+              <div class="select-shell"><select id="apTimeIn" class="time-sel"></select><span class="material-symbols-rounded select-chev">expand_more</span></div>
+              <div class="select-shell ampm"><select id="apTimeInAP" class="ampm-sel"><option>AM</option><option>PM</option></select><span class="material-symbols-rounded select-chev">expand_more</span></div>
+            </div>
+          </div>
+          <div class="field"><label data-i18n="ap_out">Clock Out</label>
+            <div class="timepick">
+              <div class="select-shell"><select id="apTimeOut" class="time-sel"></select><span class="material-symbols-rounded select-chev">expand_more</span></div>
+              <div class="select-shell ampm"><select id="apTimeOutAP" class="ampm-sel"><option>AM</option><option>PM</option></select><span class="material-symbols-rounded select-chev">expand_more</span></div>
+            </div>
+          </div>
+          <div class="field"><label data-i18n="ap_site">Jobsite</label>
+            <div class="select-shell"><select id="apSite"></select><span class="material-symbols-rounded select-chev">expand_more</span></div>
           </div>
         </div>
-        <div class="field" id="apSiteField"><label data-i18n="ap_site">Jobsite</label><select id="apSite"></select></div>
-        <div class="field"><label data-i18n="ap_day">Day</label><select id="apDay"></select></div>
-        <div class="field"><label data-i18n="ap_time">Time</label><input type="time" id="apTime"></div>
+        <!-- EDIT mode: single time -->
+        <div class="field" id="apEditFields"><label data-i18n="ap_time">Time</label>
+          <div class="timepick">
+            <div class="select-shell"><select id="apTime" class="time-sel"></select><span class="material-symbols-rounded select-chev">expand_more</span></div>
+            <div class="select-shell ampm"><select id="apTimeAP" class="ampm-sel"><option>AM</option><option>PM</option></select><span class="material-symbols-rounded select-chev">expand_more</span></div>
+          </div>
+        </div>
         <div class="spacer"></div>
-        <button class="clock-btn" id="apSubmit"><span class="material-symbols-rounded">check</span><span data-i18n="ap_save">Save punch</span></button>
+        <button class="clock-btn" id="apSubmit"><span class="material-symbols-rounded">check</span><span data-i18n="ap_save">Save</span></button>
         <button class="linkbtn" id="apCancel" data-i18n="cancel">Cancel</button>
       </section>
 
@@ -206,8 +241,27 @@
         <div class="inv-total hidden" id="invTotalRow"><span class="lbl" data-i18n="inv_total">Total</span><span class="amt" id="invTotal">$0</span></div>
         <div class="tl-flags" id="invFlags"></div>
         <div class="spacer"></div>
+        <button class="clock-btn" id="invEditBtn"><span class="material-symbols-rounded">edit_calendar</span><span data-i18n="editHoursMat">Edit Hours &amp; Materials</span></button>
         <button class="linkbtn" id="invRateBtn" data-i18n="changeRate">Change my pay rate</button>
         <div class="hint" id="invHint" data-i18n="inv_hint">Draft • auto-sends midnight Saturday</div>
+      </section>
+
+      <!-- ============ VIEW: TEAM (Sub/Owner edits crew hours + materials) ============ -->
+      <section class="view" id="view-team">
+        <div class="tl-head">
+          <div class="sec-head">
+            <button class="backbtn" id="teamBack"><span class="material-symbols-rounded">chevron_left</span><span data-i18n="back">Back</span></button>
+          </div>
+          <div class="sec-title" data-i18n="team_title">My Team</div>
+          <div class="form-note" data-i18n="team_note">Tap a person to fix their hours. Add materials below.</div>
+        </div>
+        <div class="tl-scroll">
+          <div class="team-list" id="teamList"></div>
+        </div>
+        <div class="tl-foot">
+          <button class="clock-btn ghost" id="teamAddMat"><span class="material-symbols-rounded">receipt_long</span><span data-i18n="addMaterials">Add Materials</span></button>
+          <button class="clock-btn" id="teamSubmit"><span class="material-symbols-rounded">check_circle</span><span data-i18n="tl_submit">Submit Edits</span></button>
+        </div>
       </section>
 
       <!-- ============ VIEW: MATERIALS (owner clock-out) ============ -->
@@ -221,8 +275,23 @@
         <div class="field"><label data-i18n="mat_noteL">Note (optional)</label><input type="text" id="matNote" autocomplete="off"></div>
         <div class="field"><label data-i18n="mat_receipt">Receipt photo (optional)</label><input type="file" id="matReceipt" accept="image/*" capture="environment"></div>
         <div class="spacer"></div>
-        <button class="clock-btn out" id="matSave"><span class="material-symbols-rounded">receipt_long</span><span data-i18n="mat_save">Save &amp; clock out</span></button>
+        <button class="clock-btn out" id="matSave"><span class="material-symbols-rounded">receipt_long</span><span id="matSaveLabel" data-i18n="mat_save">Save &amp; clock out</span></button>
         <button class="linkbtn" id="matSkip" data-i18n="mat_skip">Skip &amp; clock out</button>
+      </section>
+
+      <!-- ============ VIEW: SWITCH TO DIFFERENT JOBSITE ============ -->
+      <section class="view" id="view-switch">
+        <div class="sec-head">
+          <button class="backbtn" id="swBack"><span class="material-symbols-rounded">chevron_left</span><span data-i18n="back">Back</span></button>
+        </div>
+        <div class="sec-title" data-i18n="switchJob">Switch Jobsite</div>
+        <div class="form-note" data-i18n="sw_note">You'll clock out here and clock in at the site you pick — your time keeps running.</div>
+        <div class="field gap-64"><label data-i18n="sw_site">New jobsite</label>
+          <div class="select-shell"><select id="swSite"></select><span class="material-symbols-rounded select-chev">expand_more</span></div>
+        </div>
+        <div class="spacer"></div>
+        <button class="clock-btn" id="swConfirm"><span class="material-symbols-rounded">swap_horiz</span><span data-i18n="sw_confirm">Switch jobsite</span></button>
+        <button class="linkbtn" id="swCancel" data-i18n="cancel">Cancel</button>
       </section>
 
       <!-- ============ VIEW: QR SCANNER ============ -->

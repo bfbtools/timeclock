@@ -25,16 +25,17 @@ test('dates: dayKey, minutesBetween, Sunday, Monday-of-week', () => {
   assert.equal(minutesBetween('2026-07-06 07:00:00', '2026-07-06 09:30:00'), 150);
   assert.equal(isSunday('2026-07-05'), true);   // 2026-07-05 is a Sunday
   assert.equal(isSunday('2026-07-06'), false);  // Monday
-  // Week containing Wed 2026-07-08 starts Mon 2026-07-06, ends Sat 2026-07-11
+  // Week containing Wed 2026-07-08 starts Mon 2026-07-06, ends Sun 2026-07-12
   assert.equal(mondayOf('2026-07-08'), '2026-07-06');
-  assert.deepEqual(weekRange('2026-07-08'), { start: '2026-07-06', end: '2026-07-11' });
+  assert.deepEqual(weekRange('2026-07-08'), { start: '2026-07-06', end: '2026-07-12' });
 });
 
-test('inWeek: Mon–Sat included, Sunday excluded', () => {
+test('inWeek: Mon–Sun included', () => {
   const mon = '2026-07-06';
   assert.equal(inWeek('2026-07-06', mon), true);  // Mon
   assert.equal(inWeek('2026-07-11', mon), true);  // Sat
-  assert.equal(inWeek('2026-07-12', mon), false); // Sun (next day) — out of Mon–Sat
+  assert.equal(inWeek('2026-07-12', mon), true);  // Sun — now the last day of the week
+  assert.equal(inWeek('2026-07-13', mon), false); // next Mon — out of week
   assert.equal(inWeek('2026-07-05', mon), false); // previous Sun
 });
 
@@ -120,31 +121,30 @@ test('workerDays: groups punches into days with flags', () => {
   assert.equal(days['2026-07-07'].unpaired.length, 1);
 });
 
-test('summarizeWorkerWeek: sums Mon–Sat, applies pay rate, flags Sunday + unpaired', () => {
+test('summarizeWorkerWeek: sums Mon–Sun, applies pay rate, flags unpaired only', () => {
   const worker = { WorkerID: 'W-CARLITO', PayRateOverride: '35' };
   const sub = { DefaultPayRate: '50' };
   const punches = [
     P('2026-07-06 07:00:00', 'IN'), P('2026-07-06 15:00:00', 'OUT'), // Mon 8h
     P('2026-07-07 07:00:00', 'IN'), P('2026-07-07 12:00:00', 'OUT'), // Tue 5h
     P('2026-07-11 08:00:00', 'IN'),                                  // Sat unpaired
-    P('2026-07-12 09:00:00', 'IN'), P('2026-07-12 17:00:00', 'OUT'), // Sun — excluded
+    P('2026-07-12 09:00:00', 'IN'), P('2026-07-12 17:00:00', 'OUT'), // Sun 8h — now counted
   ];
   const s = summarizeWorkerWeek({ worker, sub, punches, weekStartMonday: '2026-07-06' });
-  assert.equal(s.weekHours, 13);       // 8 + 5; Sat has no paired hours, Sun not counted
+  assert.equal(s.weekHours, 21);       // 8 + 5 + 8 (Sun); Sat has no paired hours
   assert.equal(s.payRate, 35);
-  assert.equal(s.pay, 455);            // 13 × 35
+  assert.equal(s.pay, 735);            // 21 × 35
   assert.equal(s.unpairedCount, 1);    // the Sat open IN
-  // Sunday hours are NOT counted (Mon–Sat) but ARE surfaced so nothing is lost.
-  assert.ok(s.flags.some((f) => f.reason.includes('Sunday')));
+  // Sunday is a normal weekday now — no "Sunday" flag.
+  assert.ok(!s.flags.some((f) => f.reason.includes('Sunday')));
 });
 
-test('summarizeWorkerWeek: Sunday punch inside range is flagged when week spans it', () => {
-  // A worker with only a Sunday punch in the queried week window still gets flagged
+test('summarizeWorkerWeek: Sunday inside the week is counted like any weekday', () => {
   const worker = { WorkerID: 'W1' };
   const sub = { DefaultPayRate: '50' };
   const punches = [P('2026-07-05 09:00:00', 'IN'), P('2026-07-05 17:00:00', 'OUT')]; // Sun
-  // Week starting Mon 2026-06-29 includes Sat 2026-07-04; 07-05 is Sunday → out of Mon–Sat
+  // Week starting Mon 2026-06-29 runs Mon–Sun and ends Sun 2026-07-05.
   const s = summarizeWorkerWeek({ worker, sub, punches, weekStartMonday: '2026-06-29' });
-  assert.equal(s.weekHours, 0); // Sunday is outside Mon–Sat, contributes nothing
-  assert.ok(s.flags.some((f) => f.reason.includes('Sunday'))); // but it's flagged, not lost
+  assert.equal(s.weekHours, 8); // Sunday now inside the Mon–Sun week and counted
+  assert.ok(!s.flags.some((f) => f.reason.includes('Sunday')));
 });

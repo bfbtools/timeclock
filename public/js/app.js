@@ -27,19 +27,35 @@ const I = {
     scan_title: 'Scan jobsite QR', scan_hint: 'Point your camera at the QR posted at the jobsite.',
     scan_nocam: "Can't open the camera. Allow camera access, or use your phone's camera app to scan the QR.",
     scan_bad: "That code isn't a BFB jobsite QR. Try the one posted at the site.",
-    myhours: 'View my hours', back: 'Back',
+    myhours: 'View my hours', viewInvoice: 'View Invoice Draft', logout: 'Log Out', back: 'Back',
     tl_title: 'My time', tl_locked: 'Locked — the week closed Saturday',
-    tl_total: 'Week total', tl_add: 'Add a missed punch',
+    tl_total: 'Current Week Total', tl_add: 'Add a missed punch', weekTotal: 'Week Total', todayTotal: 'Today Total',
+    tl_submit: 'Submit Edits', tl_addHours: 'Add Hours',
+    editsSubmitted: 'EDITS<br>SUBMITTED',
+    warn_edit: 'Heads up — repeated manual edits are reviewed. Please clock in with the jobsite QR when you can.',
+    block_edit: 'Too many manual edits at once. Call the office for approval: 314-598-7226',
     ap_title: 'Add a missed punch', ap_edit: 'Edit punch',
     ap_note: 'This will be flagged as a manual entry for the office to review.',
-    ap_which: 'Clock in or out?', ap_site: 'Jobsite', ap_day: 'Day', ap_time: 'Time', ap_save: 'Save punch',
+    ap_which: 'Clock in or out?', ap_site: 'Jobsite', ap_day: 'Day', ap_time: 'Time', ap_save: 'Save',
+    ap_in: 'Clock In', ap_out: 'Clock Out',
+    ap_editIn: 'Edit Clock In', ap_editOut: 'Edit Clock Out',
+    apMissingBoth: 'Enter both a clock-in and a clock-out time.',
+    apOrder: 'Clock-out must be after clock-in.',
     atSite: 'at', tapEdit: 'Tap a punch to fix its time',
-    inv_title: 'Invoice draft', inv_total: 'Total', inv_hint: 'Draft • auto-sends midnight Saturday',
+    inv_title: 'Invoice draft', inv_total: 'Total', inv_hint: 'Draft • auto-sends Sunday night',
     invEmpty: 'No hours logged this week yet.', pickFirst: 'Pick your name first.',
-    apMissing: 'Pick a day and time.', locale: 'en-US',
+    apMissing: 'Enter a time.', locale: 'en-US',
     mat_title: 'Materials?', mat_note: 'Bought materials for this job today? Add them here. Optional.',
     mat_amount: 'Amount ($)', mat_noteL: 'Note (optional)', mat_receipt: 'Receipt photo (optional)',
     mat_save: 'Save & clock out', mat_skip: 'Skip & clock out',
+    mat_saveSwitch: 'Save & switch', mat_skipSwitch: 'Skip & switch',
+    switchJob: 'Switch Jobsite',
+    sw_note: "You'll clock out here and clock in at the site you pick — your time keeps running.",
+    sw_site: 'New jobsite', sw_confirm: 'Switch Jobsite',
+    sw_none: 'No other active jobsites to switch to.',
+    editHoursMat: 'Edit Hours & Materials',
+    team_title: 'My Team', team_note: 'Tap a person to fix their hours. Add materials below.',
+    addMaterials: 'Add Materials', matAmountNeeded: 'Enter a materials amount.',
     changeRate: 'Change my pay rate', rate_title: 'Your pay rate',
     rate_note: 'What BFB pays you per hour. Changes are logged and the office is notified.',
     rate_new: 'New rate ($/hr)', rate_save: 'Save rate', rateSaved: 'Rate updated.',
@@ -69,19 +85,35 @@ const I = {
     scan_title: 'Escanear QR de obra', scan_hint: 'Apunta la cámara al QR colocado en la obra.',
     scan_nocam: 'No se puede abrir la cámara. Permite el acceso o usa la app de cámara de tu teléfono para escanear.',
     scan_bad: 'Ese código no es un QR de obra BFB. Usa el que está colocado en la obra.',
-    myhours: 'Ver mis horas', back: 'Atrás',
+    myhours: 'Ver mis horas', viewInvoice: 'Ver borrador de factura', logout: 'Cerrar sesión', back: 'Atrás',
     tl_title: 'Mi tiempo', tl_locked: 'Cerrado — la semana terminó el sábado',
-    tl_total: 'Total de la semana', tl_add: 'Agregar marca olvidada',
+    tl_total: 'Total semana actual', tl_add: 'Agregar marca olvidada', weekTotal: 'Total semana', todayTotal: 'Total de hoy',
+    tl_submit: 'Enviar cambios', tl_addHours: 'Agregar horas',
+    editsSubmitted: 'CAMBIOS<br>ENVIADOS',
+    warn_edit: 'Atención — las ediciones manuales se revisan. Por favor marca con el código QR de la obra cuando puedas.',
+    block_edit: 'Demasiadas ediciones manuales a la vez. Llama a la oficina para aprobación: 314-598-7226',
     ap_title: 'Agregar marca olvidada', ap_edit: 'Editar marca',
     ap_note: 'Se marcará como entrada manual para que la oficina la revise.',
-    ap_which: '¿Entrada o salida?', ap_site: 'Obra', ap_day: 'Día', ap_time: 'Hora', ap_save: 'Guardar marca',
+    ap_which: '¿Entrada o salida?', ap_site: 'Obra', ap_day: 'Día', ap_time: 'Hora', ap_save: 'Guardar',
+    ap_in: 'Entrada', ap_out: 'Salida',
+    ap_editIn: 'Editar entrada', ap_editOut: 'Editar salida',
+    apMissingBoth: 'Ingresa la hora de entrada y de salida.',
+    apOrder: 'La salida debe ser después de la entrada.',
     atSite: 'en', tapEdit: 'Toca una marca para corregir la hora',
-    inv_title: 'Borrador de factura', inv_total: 'Total', inv_hint: 'Borrador • se envía el sábado a medianoche',
+    inv_title: 'Borrador de factura', inv_total: 'Total', inv_hint: 'Borrador • se envía el domingo por la noche',
     invEmpty: 'Aún no hay horas esta semana.', pickFirst: 'Selecciona tu nombre primero.',
-    apMissing: 'Selecciona día y hora.', locale: 'es',
+    apMissing: 'Ingresa una hora.', locale: 'es',
     mat_title: '¿Materiales?', mat_note: '¿Compraste materiales para esta obra hoy? Agrégalos aquí. Opcional.',
     mat_amount: 'Monto ($)', mat_noteL: 'Nota (opcional)', mat_receipt: 'Foto del recibo (opcional)',
     mat_save: 'Guardar y marcar salida', mat_skip: 'Omitir y marcar salida',
+    mat_saveSwitch: 'Guardar y cambiar', mat_skipSwitch: 'Omitir y cambiar',
+    switchJob: 'Cambiar de obra',
+    sw_note: 'Marcarás salida aquí y entrada en la obra que elijas — tu tiempo sigue corriendo.',
+    sw_site: 'Nueva obra', sw_confirm: 'Cambiar de obra',
+    sw_none: 'No hay otras obras activas para cambiar.',
+    editHoursMat: 'Editar horas y materiales',
+    team_title: 'Mi equipo', team_note: 'Toca a una persona para corregir sus horas. Agrega materiales abajo.',
+    addMaterials: 'Agregar materiales', matAmountNeeded: 'Ingresa un monto de materiales.',
     changeRate: 'Cambiar mi tarifa', rate_title: 'Tu tarifa',
     rate_note: 'Lo que BFB te paga por hora. Los cambios se registran y se notifica a la oficina.',
     rate_new: 'Nueva tarifa ($/hr)', rate_save: 'Guardar tarifa', rateSaved: 'Tarifa actualizada.',
@@ -103,7 +135,7 @@ const views = {
   recovery: $('view-recovery'), fallback: $('view-fallback'),
   timelog: $('view-timelog'), addpunch: $('view-addpunch'), invoice: $('view-invoice'),
   materials: $('view-materials'), rate: $('view-rate'), scan: $('view-scan'),
-  lang: $('view-lang'),
+  switch: $('view-switch'), team: $('view-team'), lang: $('view-lang'),
 };
 function show(name) {
   Object.values(views).forEach((v) => v.classList.remove('active'));
@@ -118,9 +150,16 @@ const state = {
   pinMode: 'enter',    // 'enter' | 'set' | 'confirm'
   pinBuf: '',
   pinFirst: '',        // first entry during a set
-  intent: 'clock',     // 'clock' | 'secondary' | 'addpunch'
+  intent: 'clock',     // 'clock' | 'secondary' | 'addpunch' | 'switch'
   timelog: null,       // last-loaded time log (for the add-punch day list)
   apAction: 'IN',
+  switchTo: null,      // destination QRParam while switching jobsites
+  matMode: 'clockout', // 'clockout' | 'switch' | 'day' | 'team' — where Materials came from
+  matDate: null,       // day a per-day material attaches to
+  editTarget: null,    // worker whose Time Log is shown (self, or a crew member for owners)
+  editReturn: 'clock', // where the Time Log "Back" goes: 'clock' | 'invoice' | 'team'
+  showDayMaterials: false, // per-day "Add Materials" button in the Time Log (independent)
+  team: null,          // last-loaded team roster (owner)
 };
 
 /* ------------------------------------------------------------------ api */
@@ -164,10 +203,19 @@ const API = {
       return await r.json();
     } catch { return { ok: false, error: t('err') }; }
   },
-  async timelog(workerId, pin) {
-    if (state.data?.demo) return demoTimelog();
+  // targetId = whose log; actingId = who's authenticated (owner may edit crew).
+  async timelog(targetId, actingId, pin) {
+    if (state.data?.demo) return demoTimelog(targetId);
     try {
-      const r = await fetch(`/api/timelog?workerId=${encodeURIComponent(workerId)}&pin=${encodeURIComponent(pin)}`);
+      const q = `workerId=${encodeURIComponent(targetId)}&actingId=${encodeURIComponent(actingId)}&pin=${encodeURIComponent(pin)}`;
+      const r = await fetch(`/api/timelog?${q}`);
+      return await r.json();
+    } catch { return { ok: false, error: t('err') }; }
+  },
+  async team(ownerId, pin) {
+    if (state.data?.demo) return demoTeam();
+    try {
+      const r = await fetch(`/api/team?ownerId=${encodeURIComponent(ownerId)}&pin=${encodeURIComponent(pin)}`);
       return await r.json();
     } catch { return { ok: false, error: t('err') }; }
   },
@@ -182,6 +230,16 @@ const API = {
     if (state.data?.demo) return { ok: true };
     try {
       const r = await fetch('/api/material', { method: 'POST', headers: json, body: JSON.stringify({ ...payload, site: state.site }) });
+      return await r.json();
+    } catch { return { ok: false, error: t('err') }; }
+  },
+  async switchJob(payload) {
+    if (state.data?.demo) {
+      const s = (state.data.sites || []).find((x) => x.qrParam === payload.toSite);
+      return { ok: true, at: new Date().toISOString(), site: s ? s.siteName : '' };
+    }
+    try {
+      const r = await fetch('/api/switch', { method: 'POST', headers: json, body: JSON.stringify(payload) });
       return await r.json();
     } catch { return { ok: false, error: t('err') }; }
   },
@@ -213,47 +271,89 @@ function demoSite() {
       { qrParam: 'appletree', siteName: 'Apple Tree Learning Center' },
     ],
     workers: [
-      { id: 'W1', name: 'Fredy', sub: 'San Ignacio', type: 'employee', hasPin: true, status: 'out' },
-      { id: 'W2', name: 'Carlos', sub: 'San Ignacio', type: 'employee', hasPin: true, status: 'in' },
-      { id: 'W3', name: 'Carlito', sub: 'San Ignacio', type: 'employee', hasPin: true, status: 'out' },
-      { id: 'W4', name: 'Elman', sub: 'SnowPeak', type: 'employee', hasPin: false, status: 'out' },
-      { id: 'W5', name: 'Diego', sub: 'Lopez', type: 'owner', hasPin: true, status: 'out' },
-      { id: 'W6', name: 'Nelson', sub: 'SnowPeak', type: 'employee', hasPin: true, status: 'in',
+      // Three test types for the demo: Employee (Time Log), Sub/Owner (Invoice),
+      // Independent Sub (Invoice).
+      { id: 'W1', name: 'Fredy (Employee)', sub: 'San Ignacio', type: 'employee', hasPin: true, status: 'out', todayHours: 8, weekHours: 32 },
+      { id: 'W5', name: 'Diego (Sub/Owner)', sub: 'Diego Exterior LLC', type: 'owner', hasPin: true, status: 'out', todayHours: 0, weekHours: 18.5 },
+      { id: 'W7', name: 'Sofia (Independent)', sub: 'Sofia Drywall', type: 'independent', hasPin: true, status: 'out', todayHours: 4, weekHours: 22 },
+      { id: 'W2', name: 'Carlos', sub: 'San Ignacio', type: 'employee', hasPin: true, status: 'in', todayHours: 6.25, weekHours: 24.25 },
+      { id: 'W3', name: 'Carlito', sub: 'San Ignacio', type: 'employee', hasPin: true, status: 'out', todayHours: 0, weekHours: 40 },
+      { id: 'W4', name: 'Elman', sub: 'SnowPeak', type: 'employee', hasPin: false, status: 'out', todayHours: 0, weekHours: 0 },
+      { id: 'W6', name: 'Nelson', sub: 'SnowPeak', type: 'employee', hasPin: true, status: 'in', todayHours: 5, weekHours: 16,
         openPriorDate: true, openInfo: { date: priorDayISO(), label: priorDayLabel() } },
     ],
   };
 }
+function todayISO() { return new Date().toISOString().slice(0, 10); }
 function priorDayISO() { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); }
 function priorDayLabel() { const d = new Date(); d.setDate(d.getDate() - 1); return d.toLocaleDateString(I[lang].loc, { weekday: 'long', month: 'long', day: 'numeric' }); }
 function weekMondayISO() { const d = new Date(); const delta = (d.getDay() + 6) % 7; d.setDate(d.getDate() - delta); return d.toISOString().slice(0, 10); }
 function addDaysISO(iso, n) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
 function datesInclusive(a, b) { const out = []; let d = a; while (d <= b) { out.push(d); d = addDaysISO(d, 1); } return out; }
-function demoTimelog() {
-  const ws = weekMondayISO(), we = addDaysISO(ws, 5);
-  const mk = (off, hrs, punches) => ({ date: addDaysISO(ws, off), hours: hrs, unpaired: 0, punches });
+// Demo team roster for a Sub/Owner (self + crew).
+function demoTeam() {
   return {
-    ok: true, worker: { id: 'W1', name: 'Fredy', type: 'employee' },
-    weekStart: ws, weekEnd: we, locked: false, weekHours: 16, flags: [],
-    days: [
-      mk(0, 8, [{ id: 'P-d1', time: '07:00', action: 'IN', manual: false, edited: false }, { id: 'P-d2', time: '15:00', action: 'OUT', manual: false, edited: false }]),
-      mk(1, 0, []),
-      mk(2, 8, [{ id: 'P-d3', time: '07:15', action: 'IN', manual: false, edited: false }, { id: 'P-d4', time: '15:15', action: 'OUT', manual: true, edited: true }]),
-      mk(3, 0, []), mk(4, 0, []), mk(5, 0, []),
+    ok: true,
+    members: [
+      { id: 'W5', name: 'Diego', type: 'owner', self: true, weekHours: 18.5, todayHours: 0 },
+      { id: 'WC1', name: 'Mateo', type: 'employee', weekHours: 40, todayHours: 8 },
+      { id: 'WC2', name: 'Luis', type: 'employee', weekHours: 22.5, todayHours: 0 },
     ],
   };
 }
+function demoTimelog(target) {
+  const w = target || { id: 'W1', name: 'Fredy', type: 'employee' };
+  // Rolling 14-day window ending today; a few worked days, the rest empty
+  // (so the "Add Hours" buttons and scroll are exercised).
+  const end = todayISO(), start = addDaysISO(end, -13);
+  const worked = {
+    [addDaysISO(end, -1)]: { hours: 8, punches: [
+      { id: 'P-d1', time: '07:00', action: 'IN', manual: false, edited: false },
+      { id: 'P-d2', time: '15:00', action: 'OUT', manual: false, edited: false }] },
+    [addDaysISO(end, -2)]: { hours: 8.25, punches: [
+      { id: 'P-d3', time: '07:15', action: 'IN', manual: false, edited: false },
+      { id: 'P-d4', time: '15:30', action: 'OUT', manual: true, edited: true }] },
+    [addDaysISO(end, -3)]: { hours: 4, punches: [
+      { id: 'P-d5', time: '08:00', action: 'IN', manual: false, edited: false },
+      { id: 'P-d6', time: '12:00', action: 'OUT', manual: false, edited: false }] },
+  };
+  const weekMon = weekMondayISO();
+  let total = 0, weekTotal = 0;
+  const days = [];
+  for (let i = 0; i < 14; i++) {
+    const date = addDaysISO(start, i);
+    const w = worked[date];
+    if (w) { total += w.hours; if (date >= weekMon) weekTotal += w.hours; }
+    days.push(w ? { date, hours: w.hours, unpaired: 0, punches: w.punches } : { date, hours: 0, unpaired: 0, punches: [] });
+  }
+  days.reverse(); // newest first, matching the backend
+  return {
+    ok: true, worker: { id: w.id, name: String(w.name).replace(/\s*\(.*\)$/, ''), type: w.type },
+    weekStart: start, weekEnd: end, windowStart: start, windowEnd: end,
+    locked: false, weekHours: Math.round(total * 100) / 100,
+    currentWeekHours: Math.round(weekTotal * 100) / 100, flags: [],
+    days,
+  };
+}
 function demoInvoice() {
-  const ws = weekMondayISO(), we = addDaysISO(ws, 5);
+  const ws = weekMondayISO(), we = addDaysISO(ws, 6); // Mon–Sun
+  const w = state.worker || { name: 'Diego', sub: 'Diego Exterior LLC', type: 'owner' };
+  const firstName = String(w.name).replace(/\s*\(.*\)$/, ''); // strip the "(Owner)" demo tag
+  // Owner (company sub) shows multiple worker lines; independent shows just self.
+  const workerLines = w.type === 'owner'
+    ? [{ worker: firstName, hours: 24, rate: 55, amount: 1320 }, { worker: 'Mateo', hours: 16, rate: 50, amount: 800 }]
+    : [{ worker: firstName, hours: 24, rate: 55, amount: 1320 }];
+  const laborTotal = workerLines.reduce((s, l) => s + l.amount, 0);
   return {
     ok: true, invoice: {
-      company: 'Diego Exterior LLC', subId: 'S5', weekStart: ws, weekEnd: we,
+      company: w.sub, subId: 'demo', weekStart: ws, weekEnd: we,
       projects: [{
-        projectId: 'PRJ_A', name: 'French Hill Rd — Bldg 1', hours: 24, rate: 55, amount: 1320,
+        projectId: 'PRJ_A', name: 'French Hill Rd — Bldg 1', hours: workerLines.reduce((s, l) => s + l.hours, 0), rate: w.type === 'owner' ? null : 55, amount: laborTotal,
         perDay: [{ date: ws, hours: 8 }, { date: addDaysISO(ws, 1), hours: 8 }, { date: addDaysISO(ws, 2), hours: 8 }],
       }],
-      workerLines: [{ worker: 'Diego', hours: 24, rate: 55, amount: 1320 }],
-      laborTotal: 1320, materials: [{ amount: 145.30, note: 'fasteners + blades', project: 'PRJ_A' }],
-      materialsTotal: 145.30, total: 1465.30, flags: [],
+      workerLines,
+      laborTotal, materials: [{ amount: 145.30, note: 'fasteners + blades', project: 'PRJ_A' }],
+      materialsTotal: 145.30, total: laborTotal + 145.30, flags: [],
     },
   };
 }
@@ -267,6 +367,7 @@ function applyI18n() {
   $('langEn').classList.toggle('on', lang === 'en');
   $('langEs').classList.toggle('on', lang === 'es');
   document.documentElement.lang = lang;
+  if (state.data) updateAuthLinks(); // secondary/fallback labels are dynamic
   if (state.worker) setMainButton();
   if (state.data) { renderRemembered(); updateSiteName(); }
   // Re-render whatever dynamic screen is open so it picks up the new language.
@@ -344,8 +445,41 @@ function buildDropdown() {
     sel.appendChild(o);
   });
 }
+// "Today Total: Xh" (left) and "Week Total: Xh" (right) under the flip clock,
+// for the selected/remembered worker (from the roster). Hidden with no worker.
+function updateWeekTotal() {
+  const wk = $('weekTotal'), td = $('todayTotal');
+  const w = state.worker;
+  if (w && typeof w.weekHours === 'number') {
+    wk.textContent = `${t('weekTotal')}: ${w.weekHours}h`; wk.classList.remove('hidden');
+  } else { wk.classList.add('hidden'); wk.textContent = ''; }
+  if (w && typeof w.todayHours === 'number') {
+    td.textContent = `${t('todayTotal')}: ${w.todayHours}h`; td.classList.remove('hidden');
+  } else { td.classList.add('hidden'); td.textContent = ''; }
+}
+// The secondary link says "View Invoice Draft" for owners/independents and
+// "View my hours" for employees. The fallback link is "My name isn't here" when
+// logged out, and "Log Out" once a worker is remembered on the device.
+function updateAuthLinks() {
+  const type = state.worker && state.worker.type;
+  $('secondaryBtn').textContent = (type === 'owner' || type === 'independent') ? t('viewInvoice') : t('myhours');
+  const loggedIn = !!localStorage.getItem('bfb_worker') && !!state.worker;
+  const fb = $('fallbackBtn');
+  fb.textContent = loggedIn ? t('logout') : t('notlisted');
+  fb.dataset.mode = loggedIn ? 'logout' : 'fallback';
+}
+function logout() {
+  localStorage.removeItem('bfb_worker');
+  state.worker = null;
+  const sel = $('who'); if (sel) { sel.selectedIndex = 0; sel.classList.add('empty'); }
+  renderRemembered(); setMainButton();
+  show('clock');
+}
 function setMainButton() {
   const btn = $('mainBtn'), label = $('mainBtnLabel'), icon = $('mainBtnIcon');
+  updateWeekTotal();
+  updateAuthLinks();
+  $('switchBtn').classList.add('hidden'); // shown only in the clocked-in branch below
   if (state.noSite) {
     btn.disabled = true; btn.classList.remove('out');
     label.textContent = t('noSiteShort'); icon.textContent = 'qr_code_scanner'; return;
@@ -359,6 +493,10 @@ function setMainButton() {
   btn.classList.toggle('out', out);
   label.textContent = out ? t('clockOut') : t('clockIn');
   icon.textContent = out ? 'logout' : 'login';
+  // "Switch to Different Jobsite" only makes sense while clocked in today; a
+  // prior-date open punch must be resolved via the normal clock-out first.
+  const canSwitch = out && !state.noSite && !state.worker.openPriorDate;
+  $('switchBtn').classList.toggle('hidden', !canSwitch);
 }
 
 /* ------------------------------------------------------------------ PIN */
@@ -421,7 +559,7 @@ function afterAuth(pin) {
   state.authedPin = pin;
   localStorage.setItem('bfb_worker', state.worker.id);
   if (state.intent === 'secondary') { openSecondary(); return; }
-  if (state.intent === 'addpunch') { openAddPunch(); return; }
+  if (state.intent === 'switch') { openSwitch(); return; }
   if (state.worker.openPriorDate) { openRecovery(); return; }
   const action = state.worker.status === 'in' ? 'OUT' : 'IN';
   // Owners/independents get a Materials prompt on clock-out.
@@ -430,12 +568,12 @@ function afterAuth(pin) {
 }
 function openRecovery() {
   $('recDay').value = state.worker.openInfo?.label || '';
-  $('recTime').value = '';
+  writeTime('recTime', '');
   show('recovery');
 }
 async function submitRecovery() {
-  const time = $('recTime').value;
-  if (!time) { $('recTime').focus(); return; }
+  const time = readTime('recTime');
+  if (!time) { alert(t('apMissing')); return; }
   const at = `${state.worker.openInfo.date}T${time}:00`;
   const res = await API.punch({ workerId: state.worker.id, pin: state.authedPin, action: 'OUT', at, missed: true });
   if (!res.ok) { alert(res.error || t('err')); return; }
@@ -452,7 +590,8 @@ async function doPunch(action) {
 function showFail(msg) { alert(msg || t('err')); resetToClock(); }
 
 /* ------------------------------------------------------------------ confirmation */
-function showConfirm(action, atIso) {
+function showConfirm(action, atIso, siteOverride) {
+  state.lastAction = action;
   const isIn = action === 'IN';
   const d = atIso ? new Date(atIso) : new Date();
   let h = d.getHours(); const m = d.getMinutes(); const ap = h >= 12 ? 'PM' : 'AM'; let hh = h % 12; if (hh === 0) hh = 12;
@@ -464,7 +603,8 @@ function showConfirm(action, atIso) {
   $('cStamp').textContent = `${hh}:${pad(m)} ${ap}`;
   $('cDate').textContent = d.toLocaleDateString(I[lang].loc, { weekday: 'long', month: 'long', day: 'numeric' });
   // Reminder: show which jobsite this punch landed on, so a wrong site is obvious.
-  const siteName = state.data?.project?.siteName;
+  // On a switch, the destination site is passed in (state.site is still origin).
+  const siteName = siteOverride || state.data?.project?.siteName;
   const cSite = $('cSite');
   if (siteName) { cSite.innerHTML = `<span class="material-symbols-rounded" style="font-size:16px">distance</span> ${siteName}`; cSite.style.display = ''; }
   else { cSite.style.display = 'none'; }
@@ -472,6 +612,15 @@ function showConfirm(action, atIso) {
 }
 function closeConfirm() {
   $('confirm').classList.remove('show');
+  // After clocking OUT, return to the "scan a jobsite" home so the next start
+  // requires a fresh scan (presence proof). Clock-in / switch / submit stay put.
+  if (state.lastAction === 'OUT') {
+    state.site = null;
+    if (state.data) state.data.project = null;
+    state.noSite = true;
+    updateSiteName();
+  }
+  state.lastAction = null;
   resetToClock();
 }
 
@@ -505,28 +654,83 @@ function fmtDayLong(iso) { return new Date(iso + 'T00:00:00').toLocaleDateString
 function fmtShort(iso) { return new Date(iso + 'T00:00:00').toLocaleDateString(I[lang].locale, { month: 'short', day: 'numeric' }); }
 function fmtRange(a, b) { return `${fmtShort(a)} – ${fmtShort(b)}`; }
 function money(n) { return '$' + (Math.round(n * 100) / 100).toLocaleString(I[lang].locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+// "HH:mm" (24h, as stored) → "h:mm AM/PM" for display on the Time Log.
+function fmtTime12(hhmm) {
+  const [h, m] = String(hhmm).split(':').map(Number);
+  if (!Number.isFinite(h)) return hhmm;
+  const ap = h >= 12 ? 'PM' : 'AM'; let hh = h % 12; if (hh === 0) hh = 12;
+  return `${hh}:${String(m).padStart(2, '0')} ${ap}`;
+}
+
+// Central Time Log loader. `target` = whose log; opts.return = where Back goes
+// ('clock' | 'invoice' | 'team'); opts.dayMaterials = per-day Add Materials.
+async function openTimelogFor(target, opts = {}) {
+  state.editTarget = target;
+  state.editReturn = opts.return || 'clock';
+  state.showDayMaterials = !!opts.dayMaterials;
+  showLoading(true);
+  const data = await API.timelog(target.id, state.worker.id, state.authedPin);
+  showLoading(false);
+  if (!data.ok) { alert(data.error || t('err')); resetToClock(); return; }
+  resetEditSession();
+  state.timelog = data; renderTimeLog(data); show('timelog');
+}
+async function refreshTimelog() {
+  const data = await API.timelog(state.editTarget.id, state.worker.id, state.authedPin);
+  if (data.ok) { state.timelog = data; renderTimeLog(data); }
+  return data;
+}
 
 async function openSecondary() {
   const w = state.worker;
-  showLoading(true);
   const type = w.type || 'employee';
-  if (type === 'employee') {
-    const data = await API.timelog(w.id, state.authedPin);
-    showLoading(false);
-    if (!data.ok) { alert(data.error || t('err')); resetToClock(); return; }
-    state.timelog = data; renderTimeLog(data); show('timelog');
-  } else {
-    const data = await API.invoice(w.id, state.authedPin);
-    if (data.ok && data.notOwner) { // safety: owner flag off → show time log
-      const tl = await API.timelog(w.id, state.authedPin);
-      showLoading(false);
-      if (!tl.ok) { alert(tl.error || t('err')); resetToClock(); return; }
-      state.timelog = tl; renderTimeLog(tl); show('timelog'); return;
-    }
-    showLoading(false);
-    if (!data.ok) { alert(data.error || t('err')); resetToClock(); return; }
-    renderInvoice(data.invoice); show('invoice');
-  }
+  if (type === 'employee') { openTimelogFor(w, { return: 'clock' }); return; }
+  // Owner / independent → Invoice Draft (which has the Edit button).
+  showLoading(true);
+  const data = await API.invoice(w.id, state.authedPin);
+  if (data.ok && data.notOwner) { showLoading(false); openTimelogFor(w, { return: 'clock' }); return; }
+  showLoading(false);
+  if (!data.ok) { alert(data.error || t('err')); resetToClock(); return; }
+  renderInvoice(data.invoice); show('invoice');
+}
+
+// Invoice "Edit Hours & Materials": owner → Team screen; independent → own log.
+function openInvoiceEdit() {
+  if ((state.worker.type || 'employee') === 'owner') { openTeam(); return; }
+  openTimelogFor(state.worker, { return: 'invoice', dayMaterials: true });
+}
+async function openTeam() {
+  showLoading(true);
+  const data = await API.team(state.worker.id, state.authedPin);
+  showLoading(false);
+  if (!data.ok) { alert(data.error || t('err')); return; }
+  state.team = data.members;
+  renderTeam(data.members);
+  show('team');
+}
+function renderTeam(members) {
+  const wrap = $('teamList'); wrap.innerHTML = '';
+  (members || []).forEach((m, i) => {
+    const el = document.createElement('div'); el.className = 'team-row'; el.dataset.i = i;
+    const you = m.self ? (lang === 'en' ? ' · You' : ' · Tú') : '';
+    el.innerHTML = `<div><div class="tname">${m.name}${you}</div>`
+      + `<div class="tsub">${t('weekTotal')}: ${m.weekHours}h</div></div>`
+      + '<span class="material-symbols-rounded go">chevron_right</span>';
+    wrap.appendChild(el);
+  });
+}
+async function reopenInvoice() {
+  showLoading(true);
+  const data = await API.invoice(state.worker.id, state.authedPin);
+  showLoading(false);
+  if (data.ok && data.invoice) { renderInvoice(data.invoice); show('invoice'); return; }
+  resetToClock();
+}
+// Time Log "Back" routes to wherever the log was opened from.
+function tlBackNav() {
+  if (state.editReturn === 'team') { renderTeam(state.team); show('team'); return; }
+  if (state.editReturn === 'invoice') { reopenInvoice(); return; }
+  resetToClock();
 }
 
 // Review flags come from the backend in English; translate the known ones.
@@ -550,31 +754,80 @@ function renderFlags(el, flags) {
 }
 
 function renderTimeLog(d) {
+  // When an owner edits a crew member, title with their name; else "My time".
+  const editingOther = state.editTarget && state.worker && state.editTarget.id !== state.worker.id;
+  $('tlTitle').textContent = editingOther ? String(state.editTarget.name).replace(/\s*\(.*\)$/, '') : t('tl_title');
   $('tlWeek').textContent = fmtRange(d.weekStart, d.weekEnd);
-  $('tlLocked').classList.toggle('hidden', !d.locked);
-  $('tlAdd').classList.toggle('hidden', d.locked);
   const wrap = $('tlDays'); wrap.innerHTML = '';
-  const editable = !d.locked;
   d.days.forEach((day, di) => {
+    const empty = !day.punches.length;
     const el = document.createElement('div');
-    el.className = 'tl-day' + (!day.hours && !day.punches.length ? ' empty' : '');
+    el.className = 'tl-day' + (empty ? ' empty' : '');
     const chips = day.punches.map((p, pi) => {
       const flagged = p.manual || p.edited ? ' flagged' : '';
-      const tap = editable ? ' tappable' : '';
       const icon = p.action === 'IN' ? 'login' : 'logout';
       const mark = (p.manual || p.edited) ? ' ✎' : '';
-      const attrs = editable ? ` role="button" data-di="${di}" data-pi="${pi}"` : '';
-      return `<span class="chip ${p.action === 'IN' ? 'in' : 'out'}${flagged}${tap}"${attrs}><span class="material-symbols-rounded">${icon}</span>${p.time}${mark}</span>`;
+      return `<span class="chip ${p.action === 'IN' ? 'in' : 'out'}${flagged} tappable" role="button" data-di="${di}" data-pi="${pi}"><span class="material-symbols-rounded">${icon}</span>${fmtTime12(p.time)}${mark}</span>`;
     }).join('');
+    // Days with no punches get an "Add Hours" button right in the box.
+    const hoursBody = empty
+      ? `<button class="addhours" data-date="${day.date}"><span class="material-symbols-rounded">add_circle</span>${t('tl_addHours')}</button>`
+      : `<div class="punches">${chips}</div>`;
+    // Independents can also add materials to a day (flows onto their invoice).
+    const matBtn = state.showDayMaterials
+      ? `<button class="addhours addmat" data-date="${day.date}"><span class="material-symbols-rounded">receipt_long</span>${t('addMaterials')}</button>`
+      : '';
     el.innerHTML = `<div class="drow"><span class="dname">${fmtDayLong(day.date)}</span>`
       + `<span class="dhrs ${day.hours ? '' : 'zero'}">${day.hours ? day.hours + 'h' : '—'}</span></div>`
-      + (chips ? `<div class="punches">${chips}</div>` : '');
+      + hoursBody + matBtn;
     wrap.appendChild(el);
   });
-  $('tlTotal').textContent = d.weekHours + 'h';
+  $('tlTotal').textContent = (d.currentWeekHours ?? d.weekHours) + 'h';
   const hasPunches = d.days.some((x) => x.punches.length);
-  $('tlEditHint').textContent = (editable && hasPunches) ? t('tapEdit') : '';
+  $('tlEditHint').textContent = hasPunches ? t('tapEdit') : '';
   renderFlags($('tlFlags'), d.flags);
+}
+
+/* ---- Time Log edit session: guardrail + reassurance ------------------ */
+// A "submission" = one open My Time session. A worker may add/edit hours on up
+// to 3 distinct days per session; a warning appears on the 2nd day, and a 4th
+// day is blocked with the office number (a nudge to use the jobsite QR).
+function resetEditSession() { state.editDays = new Set(); hideWarn(); }
+// The edit guardrail (warn on the 2nd day, lock on the 4th) is an anti-abuse
+// nudge for EMPLOYEES only. Independent subs and owners manage their own
+// hours/invoices — no warning, no lockout.
+function guardrailApplies() {
+  return (state.worker?.type || 'employee') === 'employee';
+}
+function dayWithinLimit(date) {
+  if (!guardrailApplies()) return true;
+  const s = state.editDays || (state.editDays = new Set());
+  const projected = s.has(date) ? s.size : s.size + 1;
+  return projected <= 3;
+}
+function noteEdit(date) {
+  if (!guardrailApplies()) return;
+  const s = state.editDays || (state.editDays = new Set());
+  const before = s.size;
+  s.add(date);
+  if (s.size === 2 && before < 2) showWarn('soft', t('warn_edit')); // 2nd distinct day
+}
+function showWarn(kind, msg) {
+  const el = $('tlWarn');
+  el.className = 'tl-warn ' + (kind === 'hard' ? 'hard' : 'soft');
+  el.innerHTML = `<span class="material-symbols-rounded">${kind === 'hard' ? 'block' : 'info'}</span><span>${msg}</span>`;
+}
+function hideWarn() { const el = $('tlWarn'); el.className = 'tl-warn hidden'; el.innerHTML = ''; }
+// "Submit Edits" — edits already saved live; this just reassures the worker.
+function showSubmitted() {
+  state.lastAction = 'submit';
+  const c = $('confirm'); c.classList.remove('out');
+  $('cIcon').textContent = 'check_circle';
+  $('cStatus').innerHTML = t('editsSubmitted');
+  $('cWho').textContent = state.worker ? state.worker.name : '';
+  $('cStamp').textContent = ''; $('cDate').textContent = '';
+  $('cSite').style.display = 'none';
+  c.classList.add('show');
 }
 
 function renderInvoice(inv) {
@@ -605,68 +858,118 @@ function renderInvoice(inv) {
   renderFlags($('invFlags'), inv.flags);
 }
 
-function setSeg(action) {
-  state.apAction = action;
-  document.querySelectorAll('#apSeg button').forEach((b) => {
-    b.classList.toggle('on', b.dataset.act === action);
-    b.classList.toggle('out', b.dataset.act === action && action === 'OUT');
-  });
-}
-function fillDayOptions() {
-  const sel = $('apDay'); sel.innerHTML = '';
-  const tl = state.timelog;
-  const dates = tl ? datesInclusive(tl.weekStart, tl.weekEnd) : datesInclusive(weekMondayISO(), addDaysISO(weekMondayISO(), 5));
-  dates.forEach((iso) => { const o = document.createElement('option'); o.value = iso; o.textContent = fmtDayLong(iso); sel.appendChild(o); });
-}
 function fillSiteOptions() {
   const sel = $('apSite'); sel.innerHTML = '';
   (state.data?.sites || []).forEach((s) => { const o = document.createElement('option'); o.value = s.qrParam; o.textContent = s.siteName; sel.appendChild(o); });
   if (state.site) sel.value = state.site; // default to the scanned site if present
 }
 
-/* ---- add a missed punch (PIN re-entered before this opens) ---- */
-function openAddPunch() {
+/* ---- 15-minute time dropdowns (a time <select> + an AM/PM <select>) ---- */
+function buildTimeSelect(sel) {
+  sel.innerHTML = '';
+  const ph = document.createElement('option'); ph.value = ''; ph.textContent = '—'; ph.disabled = true; ph.selected = true; sel.appendChild(ph);
+  [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].forEach((h) => {
+    ['00', '15', '30', '45'].forEach((m) => {
+      const o = document.createElement('option'); o.value = `${h}:${m}`; o.textContent = `${h}:${m}`; sel.appendChild(o);
+    });
+  });
+}
+function initTimeSelects() { document.querySelectorAll('select.time-sel').forEach(buildTimeSelect); }
+// 12-hour "h:mm" + AM/PM  →  "HH:mm" (24h) for the API.
+function to24(h12mm, ampm) {
+  const [h, m] = h12mm.split(':');
+  let hh = Number(h) % 12; if (ampm === 'PM') hh += 12;
+  return `${String(hh).padStart(2, '0')}:${m}`;
+}
+// "HH:mm" (24h) → { time:"h:mm", ampm }, snapping minutes to the nearest 15.
+function from24(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  let h12 = h % 12; if (h12 === 0) h12 = 12;
+  const mm = [0, 15, 30, 45].reduce((a, b) => (Math.abs(b - m) < Math.abs(a - m) ? b : a), 0);
+  return { time: `${h12}:${String(mm).padStart(2, '0')}`, ampm };
+}
+// Read/write a time control (baseId = the time <select>; baseId+'AP' = AM/PM).
+function readTime(baseId) {
+  const v = $(baseId).value;
+  return v ? to24(v, $(baseId + 'AP').value) : '';
+}
+function writeTime(baseId, hhmm) {
+  if (hhmm) { const { time, ampm } = from24(hhmm); $(baseId).value = time; $(baseId + 'AP').value = ampm; }
+  else { $(baseId).value = ''; $(baseId + 'AP').value = 'AM'; }
+}
+
+/* ---- add hours to a day: one Clock In + one Clock Out (from "Add Hours") ---- */
+function openAddPunchForDay(date) {
+  state.apMode = 'add';
+  state.apDate = date;
   state.editPunchId = null;
-  $('apTitle').textContent = t('ap_title');
-  $('apSiteField').style.display = ''; // adds need a jobsite (works offsite)
+  $('apTitle').textContent = t('tl_addHours');
+  $('apDayLabel').textContent = fmtDayLong(date);
+  $('apAddFields').style.display = '';
+  $('apEditFields').style.display = 'none';
   fillSiteOptions();
-  fillDayOptions();
-  setSeg('IN');
-  $('apTime').value = '';
+  writeTime('apTimeIn', ''); writeTime('apTimeOut', '');
   show('addpunch');
 }
-/* ---- edit an existing punch's time (offsite-friendly) ---- */
+/* ---- edit one existing punch's time; the title says which one (IN/OUT) ---- */
 function openEditPunch(punch, date) {
+  state.apMode = 'edit';
+  state.apDate = date;
   state.editPunchId = punch.id;
-  $('apTitle').textContent = t('ap_edit');
-  $('apSiteField').style.display = 'none'; // editing time/action, not moving sites
-  fillDayOptions();
-  $('apDay').value = date;
-  setSeg(punch.action);
-  $('apTime').value = punch.time;
+  state.editAction = punch.action; // fixed — editing time only, not IN↔OUT
+  $('apTitle').textContent = punch.action === 'IN' ? t('ap_editIn') : t('ap_editOut');
+  $('apDayLabel').textContent = fmtDayLong(date);
+  $('apAddFields').style.display = 'none';
+  $('apEditFields').style.display = '';
+  writeTime('apTime', punch.time);
   show('addpunch');
 }
 async function submitAddPunch() {
-  const day = $('apDay').value, time = $('apTime').value;
-  if (!day || !time) { alert(t('apMissing')); return; }
-  const at = `${day}T${time}:00`;
-  showLoading(true);
-  let res;
-  if (state.editPunchId) {
-    res = await API.punchEdit({ workerId: state.worker.id, pin: state.authedPin, punchId: state.editPunchId, at, action: state.apAction });
+  const date = state.apDate;
+  if (!date) return;
+  // Guardrail: block a 4th distinct day in this session (nudge to use the QR).
+  if (!dayWithinLimit(date)) { alert(t('block_edit')); return; }
+  // Target = whose punches (self, or a crew member); acting = who's authed.
+  const targetId = state.editTarget ? state.editTarget.id : state.worker.id;
+  const auth = { actingId: state.worker.id, pin: state.authedPin };
+  if (state.apMode === 'edit') {
+    const time = readTime('apTime');
+    if (!time) { alert(t('apMissing')); return; }
+    showLoading(true);
+    const res = await API.punchEdit({ workerId: targetId, ...auth, punchId: state.editPunchId, at: `${date}T${time}:00`, action: state.editAction });
+    if (!res.ok) { showLoading(false); alert(res.error || t('err')); return; }
   } else {
-    res = await API.punch({ workerId: state.worker.id, pin: state.authedPin, action: state.apAction, at, missed: true, site: $('apSite').value });
+    const inT = readTime('apTimeIn'), outT = readTime('apTimeOut');
+    if (!inT || !outT) { alert(t('apMissingBoth')); return; }
+    if (outT <= inT) { alert(t('apOrder')); return; }
+    const site = $('apSite').value;
+    showLoading(true);
+    // Add both punches for the day; if the IN saves but the OUT fails, surface it.
+    const inRes = await API.punch({ workerId: targetId, ...auth, action: 'IN', at: `${date}T${inT}:00`, missed: true, site });
+    if (!inRes.ok) { showLoading(false); alert(inRes.error || t('err')); return; }
+    const outRes = await API.punch({ workerId: targetId, ...auth, action: 'OUT', at: `${date}T${outT}:00`, missed: true, site });
+    if (!outRes.ok) { showLoading(false); alert(outRes.error || t('err')); return; }
   }
-  if (!res.ok) { showLoading(false); alert(res.error || t('err')); return; }
-  const tl = await API.timelog(state.worker.id, state.authedPin); // refresh
+  noteEdit(date); // count this day toward the session limit; warn on the 2nd
+  await refreshTimelog();
   showLoading(false);
-  if (tl.ok) { state.timelog = tl; renderTimeLog(tl); }
   show('timelog');
 }
 
-/* ------------------------------------------------- materials (owner clock-out) */
-function openMaterials() {
+/* ------------------------------------------------- materials */
+// mode: 'clockout' (owner clock-out) | 'switch' (jobsite switch) |
+//       'day' (independent, per Time Log day) | 'team' (owner, onto invoice).
+// clockout/switch offer a "Skip"; day/team require an amount and just Save.
+function openMaterials(mode = 'clockout', date = null) {
+  state.matMode = mode;
+  state.matDate = date;
   $('matAmount').value = ''; $('matNote').value = ''; $('matReceipt').value = '';
+  const skips = mode === 'clockout' || mode === 'switch';
+  $('matSaveLabel').textContent = mode === 'switch' ? t('mat_saveSwitch')
+    : mode === 'clockout' ? t('mat_save') : t('ap_save'); // day/team → "Save"
+  $('matSkip').textContent = mode === 'switch' ? t('mat_skipSwitch') : t('mat_skip');
+  $('matSkip').classList.toggle('hidden', !skips);
   show('materials');
 }
 function fileToBase64(file) {
@@ -678,17 +981,68 @@ function fileToBase64(file) {
     r.readAsDataURL(file);
   });
 }
-async function saveMaterialsThenOut() {
+async function saveMaterials() {
   const amount = parseFloat($('matAmount').value);
   const file = $('matReceipt').files[0];
+  const perDay = state.matMode === 'day' || state.matMode === 'team';
+  if (perDay && !(Number.isFinite(amount) && amount > 0)) { alert(t('matAmountNeeded')); return; }
   if (Number.isFinite(amount) && amount > 0) {
     showLoading(true);
     const receipt = await fileToBase64(file);
-    const res = await API.material({ workerId: state.worker.id, pin: state.authedPin, amount, note: $('matNote').value.trim(), receipt });
+    const res = await API.material({
+      workerId: state.editTarget ? state.editTarget.id : state.worker.id,
+      actingId: state.worker.id, pin: state.authedPin,
+      amount, note: $('matNote').value.trim(), receipt, date: state.matDate,
+    });
     showLoading(false);
     if (!res.ok) { alert(res.error || t('err')); return; }
   }
-  doPunch('OUT');
+  finishMaterials();
+}
+function skipMaterials() { finishMaterials(); }
+async function finishMaterials() {
+  if (state.matMode === 'switch') { doSwitch(); return; }
+  if (state.matMode === 'day') { showLoading(true); await refreshTimelog(); showLoading(false); show('timelog'); return; }
+  if (state.matMode === 'team') { show('team'); return; }
+  doPunch('OUT'); // clockout
+}
+function matBackNav() {
+  if (state.matMode === 'day') { show('timelog'); return; }
+  if (state.matMode === 'team') { show('team'); return; }
+  resetToClock();
+}
+
+/* ------------------------------------------------- switch to a different jobsite */
+function openSwitch() {
+  const sel = $('swSite');
+  sel.innerHTML = '';
+  // Every active jobsite except the one they're standing on (matched by the
+  // scanned QR param and, as a fallback, the loaded project's own qrParam).
+  const here = new Set([state.site, state.data?.project?.qrParam].filter(Boolean));
+  const sites = (state.data?.sites || []).filter((s) => !here.has(s.qrParam));
+  if (!sites.length) { alert(t('sw_none')); resetToClock(); return; }
+  sites.forEach((s) => {
+    const o = document.createElement('option'); o.value = s.qrParam; o.textContent = s.siteName; sel.appendChild(o);
+  });
+  sel.selectedIndex = 0;
+  show('switch');
+}
+function confirmSwitch() {
+  state.switchTo = $('swSite').value;
+  if (!state.switchTo) { alert(t('sw_none')); return; }
+  // Owners/independents log materials for the site they're leaving, then switch.
+  if (state.worker.type && state.worker.type !== 'employee') { openMaterials('switch'); return; }
+  doSwitch();
+}
+async function doSwitch() {
+  showLoading(true);
+  const res = await API.switchJob({
+    workerId: state.worker.id, pin: state.authedPin, fromSite: state.site, toSite: state.switchTo,
+  });
+  showLoading(false);
+  if (!res.ok) { showFail(res.error); return; }
+  state.worker.status = 'in'; // now clocked in at the destination
+  showConfirm('IN', res.at, res.site);
 }
 
 /* ---------------------------------------------------- change pay rate (owner) */
@@ -792,7 +1146,13 @@ function bind() {
     renderRemembered(); setMainButton();
   });
   $('mainBtn').addEventListener('click', () => { if (state.worker) openPin('clock'); });
-  $('fallbackBtn').addEventListener('click', openFallback);
+  $('switchBtn').addEventListener('click', () => {
+    if (state.worker && state.worker.status === 'in') openPin('switch');
+  });
+  $('fallbackBtn').addEventListener('click', () => {
+    if ($('fallbackBtn').dataset.mode === 'logout') logout();
+    else openFallback();
+  });
   $('secondaryBtn').addEventListener('click', () => {
     if (!state.worker) { alert(t('pickFirst')); return; }
     openPin('secondary');
@@ -802,31 +1162,49 @@ function bind() {
   $('scanCancel').addEventListener('click', () => { stopScanner(); show('clock'); });
 
   // secondary tab nav
-  $('tlBack').addEventListener('click', resetToClock);
+  $('tlBack').addEventListener('click', tlBackNav);
   $('invBack').addEventListener('click', resetToClock);
-  $('tlAdd').addEventListener('click', () => openPin('addpunch')); // PIN again to add
+  $('invEditBtn').addEventListener('click', openInvoiceEdit);
+  $('tlSubmit').addEventListener('click', showSubmitted); // reassurance; edits save live
   $('tlDays').addEventListener('click', (e) => {
+    const mat = e.target.closest('.addmat'); // check materials before hours (shares .addhours)
+    if (mat) { openMaterials('day', mat.dataset.date); return; }
+    const add = e.target.closest('.addhours');
+    if (add) {
+      const date = add.dataset.date;
+      if (!dayWithinLimit(date)) { showWarn('hard', t('block_edit')); return; }
+      openAddPunchForDay(date);
+      return;
+    }
     const chip = e.target.closest('.chip.tappable'); if (!chip) return;
     const day = state.timelog?.days[+chip.dataset.di];
     const punch = day?.punches[+chip.dataset.pi];
-    if (punch) openEditPunch(punch, day.date);
+    if (!day || !punch) return;
+    if (!dayWithinLimit(day.date)) { showWarn('hard', t('block_edit')); return; }
+    openEditPunch(punch, day.date);
   });
   $('apBack').addEventListener('click', () => show('timelog'));
   $('apCancel').addEventListener('click', () => show('timelog'));
   $('apSubmit').addEventListener('click', submitAddPunch);
-  $('apSeg').addEventListener('click', (e) => {
-    const b = e.target.closest('button'); if (!b) return;
-    state.apAction = b.dataset.act;
-    document.querySelectorAll('#apSeg button').forEach((x) => {
-      x.classList.toggle('on', x === b);
-      x.classList.toggle('out', x === b && b.dataset.act === 'OUT');
-    });
-  });
 
-  // materials (owner clock-out)
-  $('matSave').addEventListener('click', saveMaterialsThenOut);
-  $('matSkip').addEventListener('click', () => doPunch('OUT'));
-  $('matBack').addEventListener('click', resetToClock);
+  // team (Sub/Owner edits crew)
+  $('teamBack').addEventListener('click', reopenInvoice);
+  $('teamList').addEventListener('click', (e) => {
+    const row = e.target.closest('.team-row'); if (!row) return;
+    const m = state.team[+row.dataset.i];
+    if (m) openTimelogFor(m, { return: 'team' });
+  });
+  $('teamAddMat').addEventListener('click', () => openMaterials('team'));
+  $('teamSubmit').addEventListener('click', showSubmitted);
+
+  // materials (owner clock-out / switch)
+  $('matSave').addEventListener('click', saveMaterials);
+  $('matSkip').addEventListener('click', skipMaterials);
+  $('matBack').addEventListener('click', matBackNav);
+  // switch to a different jobsite
+  $('swConfirm').addEventListener('click', confirmSwitch);
+  $('swCancel').addEventListener('click', resetToClock);
+  $('swBack').addEventListener('click', resetToClock);
   // change pay rate
   $('invRateBtn').addEventListener('click', openRate);
   $('rateSave').addEventListener('click', saveRate);
@@ -847,6 +1225,7 @@ function bind() {
 /* ------------------------------------------------------------------ boot */
 async function boot() {
   bind();
+  initTimeSelects(); // populate the 15-min time dropdowns
   applyI18n();
   tick(); setInterval(tick, 1000);
 

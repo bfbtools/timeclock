@@ -22,9 +22,11 @@ function addDaysISO(iso, n) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// The most recently COMPLETED Mon–Sat week for a given ET date.
-// On Sunday, that's the week that just ended (mondayOf today); otherwise the
-// prior week (this week is still in progress).
+// The most recently COMPLETED week for a given ET date.
+// The billing week is Mon–Sun, so on any day Mon–Sat the current week is still
+// in progress → invoice the prior week. (Sunday can't occur here: the scheduled
+// run guards to Monday.) On Sunday itself, mondayOf(Sunday) is that same week's
+// Monday, which is intentionally NOT used by the Monday-scheduled run.
 export function targetWeekStart(todayISO) {
   const dowSun = new Date(todayISO + 'T00:00:00').getDay() === 0;
   const m = mondayOf(todayISO);

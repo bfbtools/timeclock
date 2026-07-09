@@ -16,7 +16,7 @@ test('independent: one project, per-day breakdown, labor total', () => {
   const inv = buildSubInvoice({
     sub, workers, punches, projectsById: { PRJ_A: { SiteName: 'French Hill' } }, weekStart: '2026-07-06',
   });
-  assert.equal(inv.weekEnd, '2026-07-11');
+  assert.equal(inv.weekEnd, '2026-07-12'); // Mon–Sun week ends Sunday
   assert.equal(inv.projects.length, 1);
   assert.equal(inv.projects[0].name, 'French Hill');
   assert.equal(inv.projects[0].hours, 13);

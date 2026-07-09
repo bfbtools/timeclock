@@ -1,13 +1,14 @@
 // GET /api/timelog?workerId=&pin=
-// PIN-gated. Returns the worker's current Mon–Sat week: each day's paired hours
-// and individual punches, weekly total, review flags, and whether the week is
-// locked (read-only after the Saturday cutoff). Manual/edited punches are
-// marked so the Time Log can show them as flagged.
+// PIN-gated. Returns the worker's rolling edit window (last EDIT_WINDOW_DAYS,
+// ending today — Mon–Sun weeks, Sunday counted). Each day carries its paired
+// hours and individual punches; every day in the window is editable (older days
+// simply aren't returned). Manual/edited punches are marked so the Time Log can
+// show them as flagged.
 
 import { json, query, guard } from './lib/http.js';
-import { getWorkerById, etToday, displayName } from './lib/model.js';
+import { authEdit, etToday, editWindowStart, displayName } from './lib/model.js';
 import { getPunchesForWorkers } from './lib/model.js';
-import { mondayOf, weekRange, dayKey, pairDay, summarizeWorkerWeek } from './lib/rollup.js';
+import { dayKey, pairDay, mondayOf } from './lib/rollup.js';
 
 function iso(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -21,19 +22,18 @@ function hhmm(stamp) { return String(stamp).slice(11, 16); } // "HH:mm"
 
 export default guard(async (req) => {
   const workerId = query(req, 'workerId');
+  const actingId = query(req, 'actingId');
   const pin = query(req, 'pin');
 
-  const worker = await getWorkerById(workerId);
-  if (!worker) return json(404, { ok: false, error: 'Worker not found' });
-  if (String(worker.PIN || '').trim() !== String(pin || '').trim()) {
-    return json(401, { ok: false, error: 'Wrong PIN' });
-  }
+  // Self, or an owner viewing/editing one of their sub's workers.
+  const auth = await authEdit({ targetId: workerId, actingId, pin });
+  if (auth.error) return json(auth.status, { ok: false, error: auth.error });
+  const worker = auth.target;
 
-  const weekStart = mondayOf(etToday());
-  const { end: weekEnd } = weekRange(weekStart);
-  const locked = etToday() > weekEnd; // past the Saturday cutoff
+  const windowEnd = etToday();
+  const windowStart = editWindowStart(windowEnd);
 
-  const punches = await getPunchesForWorkers([workerId], weekStart, weekEnd);
+  const punches = await getPunchesForWorkers([workerId], windowStart, windowEnd);
   const byDay = new Map();
   punches.forEach((p) => {
     const k = dayKey(p.Timestamp);
@@ -41,9 +41,17 @@ export default guard(async (req) => {
     byDay.get(k).push(p);
   });
 
-  const days = datesInclusive(weekStart, weekEnd).map((date) => {
+  const weekMon = mondayOf(windowEnd); // Monday of the current (Mon–Sun) week
+  let totalMinutes = 0;
+  let weekMinutes = 0;
+  const flags = [];
+  // Most-recent day first so today sits at the top of the scroll box.
+  const days = datesInclusive(windowStart, windowEnd).reverse().map((date) => {
     const dayPunches = byDay.get(date) || [];
     const paired = pairDay(dayPunches);
+    totalMinutes += paired.minutes;
+    if (date >= weekMon) weekMinutes += paired.minutes;
+    paired.unpaired.forEach((u) => flags.push({ date, reason: u.reason }));
     return {
       date,
       hours: paired.hours,
@@ -60,12 +68,15 @@ export default guard(async (req) => {
     };
   });
 
-  const summary = summarizeWorkerWeek({ worker, sub: null, punches, weekStartMonday: weekStart });
+  const totalHours = Math.round((totalMinutes / 60) * 100) / 100;
+  const currentWeekHours = Math.round((weekMinutes / 60) * 100) / 100;
 
   return json(200, {
     ok: true,
     worker: { id: workerId, name: displayName(worker), type: String(worker.Type || 'employee').toLowerCase() },
-    weekStart, weekEnd, locked,
-    days, weekHours: summary.weekHours, flags: summary.flags,
+    windowStart, windowEnd,
+    // Back-compat aliases (older field names the front end reads):
+    weekStart: windowStart, weekEnd: windowEnd, locked: false,
+    days, weekHours: totalHours, currentWeekHours, flags,
   });
 });

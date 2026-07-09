@@ -181,15 +181,16 @@ export function summarizeWorkerWeek({ worker, sub, punches, weekStartMonday }) {
     const dayMinutes = d.intervals.reduce((s, i) => s + i.minutes, 0);
 
     if (week && !inWeek(date, week)) {
-      // A Sunday belonging to this week's Monday-anchored span is outside the
-      // Mon–Sat billing window. Never drop it silently — surface it for review.
+      // A day outside the week's billing span (e.g. a stray punch from another
+      // week in the punch set). If Sundays are ever disabled (WEEK_LENGTH_DAYS
+      // = 6), a worked Sunday would land here — surface it rather than drop it.
       if (mondayOf(date) === week && d.sunday && (dayMinutes > 0 || d.unpaired.length)) {
-        flags.push({ date, reason: 'worked Sunday — outside the Mon–Sat week; not counted, please review' });
+        flags.push({ date, reason: 'worked Sunday — outside the billing week; not counted, please review' });
       }
       continue;
     }
 
-    if (d.sunday) flags.push({ date, reason: 'Sunday counted in week (Sundays are enabled)' });
+    // Sunday is a normal paid weekday (Mon–Sun week) — counted, not flagged.
     weekMinutes += dayMinutes;
     unpairedCount += d.unpaired.length;
     d.unpaired.forEach((u) => flags.push({ date, reason: u.reason }));

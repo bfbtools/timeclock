@@ -5,21 +5,20 @@
 // prior-day clock-out recovery; those rows are marked Source=manual, Edited=Y.
 
 import { json, body, guard } from './lib/http.js';
-import { getWorkerById, getProjectByQR, appendPunch, etStamp } from './lib/model.js';
+import { authEdit, getProjectByQR, appendPunch, etStamp, editWindowStart } from './lib/model.js';
 
 export default guard(async (req) => {
   if (req.method !== 'POST') return json(405, { ok: false, error: 'Method not allowed' });
-  const { workerId, pin, action, site, at, missed } = await body(req);
+  const { workerId, actingId, pin, action, site, at, missed } = await body(req);
 
   if (action !== 'IN' && action !== 'OUT') {
     return json(400, { ok: false, error: 'action must be IN or OUT' });
   }
 
-  const worker = await getWorkerById(workerId);
-  if (!worker) return json(404, { ok: false, error: 'Worker not found' });
-  if (String(worker.PIN || '').trim() !== String(pin || '').trim()) {
-    return json(401, { ok: false, error: 'Wrong PIN' });
-  }
+  // Self (live scan or own missed-punch), or an owner adding for their crew.
+  const auth = await authEdit({ targetId: workerId, actingId, pin });
+  if (auth.error) return json(auth.status, { ok: false, error: auth.error });
+  const worker = auth.target;
 
   const project = site ? await getProjectByQR(site) : null;
   // Presence proof for LIVE punches only: a real-time clock in/out must come
@@ -35,6 +34,10 @@ export default guard(async (req) => {
   if (missed && at) {
     stamp = String(at).replace('T', ' ').slice(0, 19);
     if (stamp.length === 16) stamp += ':00';
+    // Manual adds are limited to the rolling edit window.
+    if (stamp.slice(0, 10) < editWindowStart()) {
+      return json(403, { ok: false, error: 'That day is outside the 2-week edit window' });
+    }
   } else {
     stamp = etStamp();
   }

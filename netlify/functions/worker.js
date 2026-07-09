@@ -6,6 +6,7 @@
 
 import { json, body, guard } from './lib/http.js';
 import { createFallbackWorker, getSubsById, displayName } from './lib/model.js';
+import { sendEmail } from './lib/email.js';
 
 export default guard(async (req) => {
   if (req.method !== 'POST') return json(405, { ok: false, error: 'Method not allowed' });
@@ -19,6 +20,22 @@ export default guard(async (req) => {
   if (!sub) return json(404, { ok: false, error: 'Sub not found' });
 
   const row = await createFallbackWorker({ first, last, subId });
+
+  // Notify accounting of a self-added worker (non-blocking — never fail signup).
+  try {
+    const acct = process.env.ACCOUNTING_EMAIL || 'accounting@backforty.builders';
+    await sendEmail({
+      to: acct,
+      subject: `New worker self-added: ${first} ${last} (${sub.CompanyName})`,
+      html: `<p>A worker added themselves through the Time Clock and is flagged <b>pending review</b>.</p>
+        <ul>
+          <li><b>Name:</b> ${first} ${last}</li>
+          <li><b>Sub / company:</b> ${sub.CompanyName}</li>
+          <li><b>Worker ID:</b> ${row.WorkerID}</li>
+        </ul>
+        <p>Set their type and pay rate in the Workers tab, then clear the Pending Review flag.</p>`,
+    });
+  } catch (e) { /* email is best-effort; the worker is already created */ }
 
   return json(200, {
     ok: true,
