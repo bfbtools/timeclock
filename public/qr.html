@@ -88,30 +88,30 @@
   .bcard .rule{height:3px;border-radius:2px;max-width:80px;margin:6px auto 0;background:linear-gradient(90deg,var(--ember) 0 40%,var(--brass) 40% 70%,var(--pine) 70% 100%);}
   .board-foot{margin-top:12px;font-size:10px;color:var(--soft);text-align:center;}
 
-  /* -- single poster (Print This Jobsite) -- */
-  .poster{min-height:11in;display:flex;flex-direction:column;}
-  .poster .band{background:#2d2e28;color:#fff;padding:26px 40px;display:flex;align-items:center;justify-content:space-between;}
+  /* -- single poster (Print This Jobsite) -- must fit on ONE letter page -- */
+  .poster{display:flex;flex-direction:column;page-break-inside:avoid;break-inside:avoid;}
+  .poster .band{background:#2d2e28;color:#fff;padding:20px 40px;display:flex;align-items:center;justify-content:space-between;}
   .poster .band .l1{font-family:'Barlow Condensed';font-weight:700;font-size:40px;letter-spacing:.5px;line-height:1;}
   .poster .band .l2{font-weight:700;font-size:13px;letter-spacing:6px;color:var(--kraft);text-transform:uppercase;margin-top:4px;}
   .poster .band .tag{font-family:'Barlow Condensed';font-weight:700;font-size:20px;color:var(--kraft);text-transform:uppercase;text-align:right;line-height:1.1;}
   .poster .band .tag small{font-size:12px;letter-spacing:2px;color:#9a825d;}
   .poster .rule{height:6px;background:linear-gradient(90deg,var(--ember) 0 40%,var(--brass) 40% 70%,var(--pine) 70% 100%);}
-  .poster .pbody{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:32px 40px 28px;}
+  .poster .pbody{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:26px 40px 18px;}
   .poster .lbl{font-weight:700;font-size:15px;letter-spacing:4px;text-transform:uppercase;color:var(--pine);}
   .poster .lbl .en2{color:var(--soft);}
-  .poster .site{font-family:'Barlow Condensed';font-weight:700;font-size:62px;line-height:1;margin:5px 0 20px;}
+  .poster .site{font-family:'Barlow Condensed';font-weight:700;font-size:62px;line-height:1;margin:4px 0 14px;}
   .poster .qrbox{border:3px solid var(--ink);border-radius:22px;padding:20px;}
-  .poster .qrbox img{width:3.6in;height:3.6in;display:block;}
-  .poster .cta .es{font-family:'Barlow Condensed';font-weight:700;font-size:46px;line-height:1;color:var(--ember);text-transform:uppercase;margin-top:24px;}
+  .poster .qrbox img{width:3in;height:3in;display:block;}
+  .poster .cta .es{font-family:'Barlow Condensed';font-weight:700;font-size:46px;line-height:1;color:var(--ember);text-transform:uppercase;margin-top:16px;}
   .poster .cta .en{font-weight:700;font-size:18px;color:var(--soft);text-transform:uppercase;letter-spacing:1px;margin-top:5px;}
-  .poster .inst{margin-top:24px;width:100%;max-width:6.5in;}
-  .poster .inst .prow{display:flex;gap:16px;align-items:center;text-align:left;padding:14px 20px;border:1px solid var(--line);border-radius:14px;background:#faf4ea;margin-bottom:12px;}
+  .poster .inst{margin-top:16px;width:100%;max-width:6.5in;}
+  .poster .inst .prow{display:flex;gap:16px;align-items:center;text-align:left;padding:11px 18px;border:1px solid var(--line);border-radius:14px;background:#faf4ea;margin-bottom:9px;}
   .poster .inst .ic{width:48px;height:48px;flex:0 0 48px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;}
   .poster .inst .ic.ember{background:var(--ember);} .poster .inst .ic.pine{background:var(--pine);}
   .poster .inst .ic .material-symbols-rounded{font-size:26px;}
   .poster .inst .es{font-weight:700;font-size:18px;line-height:1.2;}
   .poster .inst .en{font-size:13px;color:var(--soft);font-style:italic;margin-top:3px;}
-  .poster .pfoot{margin-top:auto;padding-top:16px;font-family:'Roboto Mono';font-size:13px;color:var(--soft);}
+  .poster .pfoot{margin-top:18px;padding-top:16px;font-family:'Roboto Mono';font-size:13px;color:var(--soft);}
 </style>
 </head>
 <body>
