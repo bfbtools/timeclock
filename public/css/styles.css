@@ -72,7 +72,6 @@ body{font-family:'Libre Franklin',sans-serif;background:#34332c;color:var(--ink)
 .scan-reticle{position:absolute;inset:16%;border:3px solid rgba(255,255,255,0.9);border-radius:18px;
   box-shadow:0 0 0 100vmax rgba(0,0,0,0.35);pointer-events:none;}
 .scan-hint{text-align:center;font-size:13px;font-weight:600;color:var(--ink-soft);margin-top:12px;padding:0 8px;line-height:1.45;}
-#view-scan{padding-top:40px;}
 #view-scan .sec-title{text-align:center;}
 
 /* ---- flip clock ---- */
