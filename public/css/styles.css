@@ -59,6 +59,12 @@ body{font-family:'Libre Franklin',sans-serif;background:#34332c;color:var(--ink)
 .jobsite.scannable .pin{background:var(--ember);}
 .jobsite.scannable:active{transform:scale(0.99);}
 .jobsite.scannable .jobsite-go{display:block;}
+/* Gray X to clear the scanned jobsite (shown only when a site is set). */
+.jobsite-clear{display:none;background:transparent;border:0;cursor:pointer;color:var(--placeholder);
+  padding:0;flex:0 0 auto;align-items:center;margin-left:-2px;}
+.jobsite-clear .material-symbols-rounded{font-size:26px;}
+.jobsite-clear:active{color:var(--ink-soft);}
+.jobsite:not(.scannable) .jobsite-clear{display:flex;}
 
 /* ---- QR scanner ---- */
 .scan-stage{position:relative;width:100%;aspect-ratio:1/1;max-height:60vh;margin:8px 0 4px;border-radius:16px;overflow:hidden;background:#000;}
@@ -219,9 +225,14 @@ select.empty{color:var(--placeholder);font-weight:500;}
 
 /* ---- secondary tab (time log / invoice) ---- */
 .sec-head{display:flex;align-items:center;gap:10px;padding-top:2px;margin-bottom:4px;}
+/* Tertiary nav (Back / Cancel): bigger, ALL CAPS, flush to the left edge.
+   The chevron glyph carries optical left padding, so pull it back to align. */
 .backbtn{background:transparent;border:0;color:var(--ink-soft);font-family:'Libre Franklin';font-weight:700;
-  font-size:13px;letter-spacing:.5px;cursor:pointer;display:flex;align-items:center;gap:2px;padding:4px 2px;}
-.backbtn .material-symbols-rounded{font-size:20px;}
+  font-size:15px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:2px;
+  padding:4px 2px 4px 0;margin-left:-4px;}
+.backbtn .material-symbols-rounded{font-size:22px;}
+/* Scan view: title + camera box centered on the page, Cancel pinned top-left. */
+.scan-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;}
 .sec-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:26px;line-height:1;color:var(--ink);}
 #tlTitle{text-transform:uppercase;} /* "MY TIME" / "MI TIEMPO" */
 .sec-sub{font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);margin:0 0 12px 2px;}

@@ -24,7 +24,7 @@ const I = {
     fb_note: 'New here? Add your name and set a PIN. Your rate is set by the office.',
     fb_first: 'First name', fb_last: 'Last name', fb_sub: 'Your company / sub',
     fb_subsel: 'Select', fb_save: 'Continue & set PIN',
-    scan_title: 'Scan jobsite QR', scan_hint: 'Point your camera at the QR posted at the jobsite.',
+    scan_title: 'Scan Jobsite QR Code', scan_hint: 'Point your camera at the QR posted at the jobsite.',
     scan_nocam: "Can't open the camera. Allow camera access, or use your phone's camera app to scan the QR.",
     scan_bad: "That code isn't a BFB jobsite QR. Try the one posted at the site.",
     myhours: 'View my hours', viewInvoice: 'View Invoice Draft', logout: 'Log Out', back: 'Back',
@@ -49,6 +49,9 @@ const I = {
     mat_amount: 'Amount ($)', mat_noteL: 'Note (optional)', mat_receipt: 'Receipt photo (optional)',
     mat_save: 'Save & clock out', mat_skip: 'Skip & clock out',
     mat_saveSwitch: 'Save & switch', mat_skipSwitch: 'Skip & switch',
+    choice_clockTitle: 'Clock Out', choice_switchTitle: 'Switch Jobsite',
+    choice_note: 'Add materials for this jobsite, or continue.',
+    clockOutNoMat: 'Clock Out Without Materials', switchNoMat: 'Switch Without Materials',
     switchJob: 'Switch Jobsite',
     sw_note: "You'll clock out here and clock in at the site you pick — your time keeps running.",
     sw_site: 'New jobsite', sw_confirm: 'Switch Jobsite',
@@ -61,7 +64,7 @@ const I = {
     rate_new: 'New rate ($/hr)', rate_save: 'Save rate', rateSaved: 'Rate updated.',
     rateBad: 'Enter a valid rate.',
     err: 'Something went wrong. Try again.', errName: 'Enter your first and last name.',
-    errSub: 'Pick your company.', noSite: 'No jobsite in the link. Scan the QR at the site.',
+    errSub: 'Pick your company.', noSite: 'Scan Jobsite QR Code to Clock In.',
     noSiteShort: 'Scan the jobsite QR',
   },
   es: {
@@ -82,7 +85,7 @@ const I = {
     fb_note: '¿Eres nuevo? Agrega tu nombre y crea un PIN. La oficina define tu tarifa.',
     fb_first: 'Nombre', fb_last: 'Apellido', fb_sub: 'Tu compañía / sub',
     fb_subsel: 'Selecciona', fb_save: 'Continuar y crear PIN',
-    scan_title: 'Escanear QR de obra', scan_hint: 'Apunta la cámara al QR colocado en la obra.',
+    scan_title: 'Escanear Código QR de Obra', scan_hint: 'Apunta la cámara al QR colocado en la obra.',
     scan_nocam: 'No se puede abrir la cámara. Permite el acceso o usa la app de cámara de tu teléfono para escanear.',
     scan_bad: 'Ese código no es un QR de obra BFB. Usa el que está colocado en la obra.',
     myhours: 'Ver mis horas', viewInvoice: 'Ver borrador de factura', logout: 'Cerrar sesión', back: 'Atrás',
@@ -107,6 +110,9 @@ const I = {
     mat_amount: 'Monto ($)', mat_noteL: 'Nota (opcional)', mat_receipt: 'Foto del recibo (opcional)',
     mat_save: 'Guardar y marcar salida', mat_skip: 'Omitir y marcar salida',
     mat_saveSwitch: 'Guardar y cambiar', mat_skipSwitch: 'Omitir y cambiar',
+    choice_clockTitle: 'Marcar Salida', choice_switchTitle: 'Cambiar de obra',
+    choice_note: 'Agrega materiales para esta obra, o continúa.',
+    clockOutNoMat: 'Marcar salida sin materiales', switchNoMat: 'Cambiar sin materiales',
     switchJob: 'Cambiar de obra',
     sw_note: 'Marcarás salida aquí y entrada en la obra que elijas — tu tiempo sigue corriendo.',
     sw_site: 'Nueva obra', sw_confirm: 'Cambiar de obra',
@@ -119,7 +125,7 @@ const I = {
     rate_new: 'Nueva tarifa ($/hr)', rate_save: 'Guardar tarifa', rateSaved: 'Tarifa actualizada.',
     rateBad: 'Ingresa una tarifa válida.',
     err: 'Algo salió mal. Inténtalo de nuevo.', errName: 'Escribe tu nombre y apellido.',
-    errSub: 'Selecciona tu compañía.', noSite: 'No hay obra en el enlace. Escanea el QR en la obra.',
+    errSub: 'Selecciona tu compañía.', noSite: 'Escanea el código QR de la obra para marcar entrada.',
     noSiteShort: 'Escanea el QR de la obra',
   },
 };
@@ -135,7 +141,7 @@ const views = {
   recovery: $('view-recovery'), fallback: $('view-fallback'),
   timelog: $('view-timelog'), addpunch: $('view-addpunch'), invoice: $('view-invoice'),
   materials: $('view-materials'), rate: $('view-rate'), scan: $('view-scan'),
-  switch: $('view-switch'), team: $('view-team'), lang: $('view-lang'),
+  switch: $('view-switch'), team: $('view-team'), choice: $('view-choice'), lang: $('view-lang'),
 };
 function show(name) {
   Object.values(views).forEach((v) => v.classList.remove('active'));
@@ -156,6 +162,7 @@ const state = {
   switchTo: null,      // destination QRParam while switching jobsites
   matMode: 'clockout', // 'clockout' | 'switch' | 'day' | 'team' — where Materials came from
   matDate: null,       // day a per-day material attaches to
+  choiceMode: 'clockout', // 'clockout' | 'switch' — the clock-out/switch choice screen
   editTarget: null,    // worker whose Time Log is shown (self, or a crew member for owners)
   editReturn: 'clock', // where the Time Log "Back" goes: 'clock' | 'invoice' | 'team'
   showDayMaterials: false, // per-day "Add Materials" button in the Time Log (independent)
@@ -385,6 +392,15 @@ function updateSiteName() {
   $('jobsiteCard').classList.toggle('scannable', state.noSite);
   $('jobsiteIcon').textContent = state.noSite ? 'photo_camera' : 'distance';
 }
+// The gray X on the jobsite card: drop the scanned site and return to the
+// "scan a QR code" state so a different code can be scanned.
+function clearJobsite() {
+  state.site = null;
+  if (state.data) state.data.project = null;
+  state.noSite = true;
+  updateSiteName();
+  setMainButton();
+}
 
 /* ------------------------------------------------------------------ flip clock (from approved preview) */
 let paused = false;
@@ -539,14 +555,16 @@ async function submitPin() {
       setTimeout(() => { state.pinBuf = ''; state.pinFirst = ''; state.pinMode = 'set'; renderPin(); }, 900);
       return;
     }
+    showLoading(true);
     const res = await API.auth({ workerId: state.worker.id, newPin: entered });
-    if (!res.ok) { pinFail(res.error); return; }
+    if (!res.ok) { showLoading(false); pinFail(res.error); return; }
     state.worker.hasPin = true;
     afterAuth(entered); return;
   }
   // enter mode
+  showLoading(true); // the Sheet round-trip can take a couple seconds — show it
   const res = await API.auth({ workerId: state.worker.id, pin: entered });
-  if (!res.ok) { pinFail(res.error || t('pinWrong')); return; }
+  if (!res.ok) { showLoading(false); pinFail(res.error || t('pinWrong')); return; }
   afterAuth(entered);
 }
 function pinFail(msg) {
@@ -562,14 +580,24 @@ function afterAuth(pin) {
   if (state.intent === 'switch') { openSwitch(); return; }
   if (state.worker.openPriorDate) { openRecovery(); return; }
   const action = state.worker.status === 'in' ? 'OUT' : 'IN';
-  // Owners/independents get a Materials prompt on clock-out.
-  if (action === 'OUT' && (state.worker.type && state.worker.type !== 'employee')) { openMaterials(); return; }
+  // Owners/independents get a "clock out with or without materials" choice.
+  if (action === 'OUT' && (state.worker.type && state.worker.type !== 'employee')) { openClockChoice('clockout'); return; }
   doPunch(action);
 }
 function openRecovery() {
+  showLoading(false);
   $('recDay').value = state.worker.openInfo?.label || '';
   writeTime('recTime', '');
   show('recovery');
+}
+// Owner/independent clock-out (and switch): choose to add materials or not.
+function openClockChoice(mode) {
+  showLoading(false);
+  state.choiceMode = mode;
+  $('choiceTitle').textContent = mode === 'switch' ? t('choice_switchTitle') : t('choice_clockTitle');
+  $('choicePrimaryLabel').textContent = mode === 'switch' ? t('switchNoMat') : t('clockOutNoMat');
+  $('choicePrimaryIcon').textContent = mode === 'switch' ? 'swap_horiz' : 'logout';
+  show('choice');
 }
 async function submitRecovery() {
   const time = readTime('recTime');
@@ -582,15 +610,17 @@ async function submitRecovery() {
   doPunch('IN');
 }
 async function doPunch(action) {
+  showLoading(true);
   const res = await API.punch({ workerId: state.worker.id, pin: state.authedPin, action });
   if (!res.ok) { showFail(res.error); return; }
   state.worker.status = action === 'IN' ? 'in' : 'out';
   showConfirm(action, res.at);
 }
-function showFail(msg) { alert(msg || t('err')); resetToClock(); }
+function showFail(msg) { showLoading(false); alert(msg || t('err')); resetToClock(); }
 
 /* ------------------------------------------------------------------ confirmation */
 function showConfirm(action, atIso, siteOverride) {
+  showLoading(false);
   state.lastAction = action;
   const isIn = action === 'IN';
   const d = atIso ? new Date(atIso) : new Date();
@@ -962,14 +992,15 @@ async function submitAddPunch() {
 //       'day' (independent, per Time Log day) | 'team' (owner, onto invoice).
 // clockout/switch offer a "Skip"; day/team require an amount and just Save.
 function openMaterials(mode = 'clockout', date = null) {
+  showLoading(false);
   state.matMode = mode;
   state.matDate = date;
   $('matAmount').value = ''; $('matNote').value = ''; $('matReceipt').value = '';
-  const skips = mode === 'clockout' || mode === 'switch';
   $('matSaveLabel').textContent = mode === 'switch' ? t('mat_saveSwitch')
     : mode === 'clockout' ? t('mat_save') : t('ap_save'); // day/team → "Save"
-  $('matSkip').textContent = mode === 'switch' ? t('mat_skipSwitch') : t('mat_skip');
-  $('matSkip').classList.toggle('hidden', !skips);
+  // The "clock out / switch without materials" choice now lives on the choice
+  // screen, so the old inline Skip button is no longer needed.
+  $('matSkip').classList.add('hidden');
   show('materials');
 }
 function fileToBase64(file) {
@@ -1009,11 +1040,13 @@ async function finishMaterials() {
 function matBackNav() {
   if (state.matMode === 'day') { show('timelog'); return; }
   if (state.matMode === 'team') { show('team'); return; }
+  if (state.matMode === 'clockout' || state.matMode === 'switch') { show('choice'); return; }
   resetToClock();
 }
 
 /* ------------------------------------------------- switch to a different jobsite */
 function openSwitch() {
+  showLoading(false);
   const sel = $('swSite');
   sel.innerHTML = '';
   // Every active jobsite except the one they're standing on (matched by the
@@ -1030,8 +1063,8 @@ function openSwitch() {
 function confirmSwitch() {
   state.switchTo = $('swSite').value;
   if (!state.switchTo) { alert(t('sw_none')); return; }
-  // Owners/independents log materials for the site they're leaving, then switch.
-  if (state.worker.type && state.worker.type !== 'employee') { openMaterials('switch'); return; }
+  // Owners/independents choose "switch with or without materials" first.
+  if (state.worker.type && state.worker.type !== 'employee') { openClockChoice('switch'); return; }
   doSwitch();
 }
 async function doSwitch() {
@@ -1159,6 +1192,7 @@ function bind() {
   });
   // No-jobsite card doubles as a "scan the QR" button.
   $('jobsiteCard').addEventListener('click', () => { if (state.noSite) openScanner(); });
+  $('jobsiteClear').addEventListener('click', (e) => { e.stopPropagation(); clearJobsite(); });
   $('scanCancel').addEventListener('click', () => { stopScanner(); show('clock'); });
 
   // secondary tab nav
@@ -1197,6 +1231,12 @@ function bind() {
   $('teamAddMat').addEventListener('click', () => openMaterials('team'));
   $('teamSubmit').addEventListener('click', showSubmitted);
 
+  // clock-out / switch choice (owner/independent)
+  $('choicePrimary').addEventListener('click', () => {
+    if (state.choiceMode === 'switch') doSwitch(); else doPunch('OUT');
+  });
+  $('choiceAddMat').addEventListener('click', () => openMaterials(state.choiceMode));
+  $('choiceBack').addEventListener('click', resetToClock);
   // materials (owner clock-out / switch)
   $('matSave').addEventListener('click', saveMaterials);
   $('matSkip').addEventListener('click', skipMaterials);

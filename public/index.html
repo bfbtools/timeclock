@@ -38,6 +38,7 @@
       <!-- ============ VIEW: CLOCK (identify + in/out) ============ -->
       <section class="view active" id="view-clock">
         <div class="jobsite" id="jobsiteCard">
+          <button class="jobsite-clear" id="jobsiteClear" type="button" aria-label="Clear jobsite"><span class="material-symbols-rounded">cancel</span></button>
           <div class="pin"><span class="material-symbols-rounded" id="jobsiteIcon">distance</span></div>
           <div><div class="label" data-i18n="job">Jobsite</div><div class="name" id="siteName">—</div></div>
           <span class="material-symbols-rounded jobsite-go" id="jobsiteGo">chevron_right</span>
@@ -264,6 +265,18 @@
         </div>
       </section>
 
+      <!-- ============ VIEW: CLOCK-OUT / SWITCH CHOICE (owner/independent) ============ -->
+      <section class="view" id="view-choice">
+        <div class="sec-head">
+          <button class="backbtn" id="choiceBack"><span class="material-symbols-rounded">chevron_left</span><span data-i18n="cancel">Cancel</span></button>
+        </div>
+        <div class="sec-title" id="choiceTitle">Clock Out</div>
+        <div class="form-note" data-i18n="choice_note">Add materials for this jobsite, or continue.</div>
+        <div class="spacer"></div>
+        <button class="clock-btn out" id="choicePrimary"><span class="material-symbols-rounded" id="choicePrimaryIcon">logout</span><span id="choicePrimaryLabel">Clock Out Without Materials</span></button>
+        <button class="clock-btn ghost" id="choiceAddMat"><span class="material-symbols-rounded">receipt_long</span><span data-i18n="addMaterials">Add Materials</span></button>
+      </section>
+
       <!-- ============ VIEW: MATERIALS (owner clock-out) ============ -->
       <section class="view" id="view-materials">
         <div class="sec-head">
@@ -273,7 +286,7 @@
         <div class="form-note" data-i18n="mat_note">Bought materials for this job today? Add them here. Optional.</div>
         <div class="field"><label data-i18n="mat_amount">Amount ($)</label><input type="number" id="matAmount" inputmode="decimal" placeholder="0.00"></div>
         <div class="field"><label data-i18n="mat_noteL">Note (optional)</label><input type="text" id="matNote" autocomplete="off"></div>
-        <div class="field"><label data-i18n="mat_receipt">Receipt photo (optional)</label><input type="file" id="matReceipt" accept="image/*" capture="environment"></div>
+        <div class="field"><label data-i18n="mat_receipt">Receipt photo (optional)</label><input type="file" id="matReceipt" accept="image/*"></div>
         <div class="spacer"></div>
         <button class="clock-btn out" id="matSave"><span class="material-symbols-rounded">receipt_long</span><span id="matSaveLabel" data-i18n="mat_save">Save &amp; clock out</span></button>
         <button class="linkbtn" id="matSkip" data-i18n="mat_skip">Skip &amp; clock out</button>
@@ -299,12 +312,14 @@
         <div class="sec-head">
           <button class="backbtn" id="scanCancel"><span class="material-symbols-rounded">chevron_left</span><span data-i18n="cancel">Cancel</span></button>
         </div>
-        <div class="sec-title" data-i18n="scan_title">Scan jobsite QR</div>
-        <div class="scan-stage">
-          <video id="scanVideo" playsinline muted></video>
-          <div class="scan-reticle"></div>
+        <div class="scan-center">
+          <div class="sec-title" data-i18n="scan_title">Scan Jobsite QR Code</div>
+          <div class="scan-stage">
+            <video id="scanVideo" playsinline muted></video>
+            <div class="scan-reticle"></div>
+          </div>
+          <div class="scan-hint" id="scanMsg" data-i18n="scan_hint">Point your camera at the QR posted at the jobsite.</div>
         </div>
-        <div class="scan-hint" id="scanMsg" data-i18n="scan_hint">Point your camera at the QR posted at the jobsite.</div>
       </section>
 
       <!-- ============ VIEW: CHANGE PAY RATE (owner/independent) ============ -->
