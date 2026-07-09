@@ -91,8 +91,10 @@ const I = {
     noSiteShort: 'Escanea el QR de la obra',
   },
 };
-let lang = localStorage.getItem('bfb_lang') || 'en';
+let lang = localStorage.getItem('bfb_lang') || 'es'; // gate is shown until a choice is made
+const langChosen = () => localStorage.getItem('bfb_lang') !== null;
 const t = (k) => I[lang][k];
+function chooseLang(l) { lang = l; localStorage.setItem('bfb_lang', l); applyI18n(); }
 
 /* ------------------------------------------------------------------ dom */
 const $ = (id) => document.getElementById(id);
@@ -101,6 +103,7 @@ const views = {
   recovery: $('view-recovery'), fallback: $('view-fallback'),
   timelog: $('view-timelog'), addpunch: $('view-addpunch'), invoice: $('view-invoice'),
   materials: $('view-materials'), rate: $('view-rate'), scan: $('view-scan'),
+  lang: $('view-lang'),
 };
 function show(name) {
   Object.values(views).forEach((v) => v.classList.remove('active'));
@@ -770,8 +773,15 @@ function resetToClock() {
 
 /* ------------------------------------------------------------------ wire up */
 function bind() {
+  // header EN/ES toggle
   document.querySelectorAll('.lang button').forEach((b) =>
-    b.addEventListener('click', () => { lang = b.dataset.lang; localStorage.setItem('bfb_lang', lang); applyI18n(); }));
+    b.addEventListener('click', () => {
+      chooseLang(b.dataset.lang);
+      if (views.lang.classList.contains('active')) show('clock'); // if still on the gate, proceed
+    }));
+  // language gate (first step): pick a language, then go to the clock
+  document.querySelectorAll('.lg-btn').forEach((b) =>
+    b.addEventListener('click', () => { chooseLang(b.dataset.lang); show('clock'); }));
 
   $('who').addEventListener('change', (e) => {
     const w = state.data.workers.find((x) => x.id === e.target.value);
@@ -839,6 +849,9 @@ async function boot() {
   bind();
   applyI18n();
   tick(); setInterval(tick, 1000);
+
+  // First step: if no language has been chosen on this device, show the gate.
+  if (!langChosen()) show('lang');
 
   const params = new URLSearchParams(location.search);
   state.site = params.get('site');

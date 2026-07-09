@@ -122,6 +122,16 @@ select.empty{color:var(--placeholder);font-weight:500;}
 .linksep{color:var(--line-strong);font-weight:600;font-size:13px;}
 .notyou-link{margin-top:9px;}
 
+/* ---- language gate (first step) ---- */
+.lang-gate{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;padding:24px 20px;}
+.lg-icon{font-size:52px;color:var(--pine);}
+.lg-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:36px;color:var(--ink);line-height:1;}
+.lg-sub{font-size:15px;color:var(--ink-soft);font-weight:600;margin-bottom:12px;}
+.lg-btn{width:100%;max-width:280px;border:1.5px solid var(--line-strong);border-radius:10px;padding:20px;
+  font-family:'Libre Franklin',sans-serif;font-weight:700;font-size:18px;letter-spacing:1px;cursor:pointer;background:#fff;color:var(--ink);transition:transform .05s ease;}
+.lg-btn.primary{background:var(--ember);color:#fff;border-color:var(--ember);}
+.lg-btn:active{transform:scale(0.99);}
+
 /* ---- PIN pad ---- */
 .pin-head{text-align:center;padding-top:8px;}
 .pin-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:30px;line-height:1;color:var(--ink);}
