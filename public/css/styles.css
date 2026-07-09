@@ -131,8 +131,8 @@ select.empty{color:var(--placeholder);font-weight:500;}
 .clock-btn.ghost .material-symbols-rounded{color:var(--pine);}
 .hint{text-align:center;font-size:12px;color:var(--ink-soft);margin-top:12px;font-weight:500;}
 .linkbtn{display:block;width:100%;background:transparent;border:0;color:var(--ink-soft);
-  font-family:'Libre Franklin';font-weight:600;font-size:13px;letter-spacing:.5px;text-align:center;
-  margin-top:14px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-transform:capitalize;}
+  font-family:'Libre Franklin';font-weight:600;font-size:13px;letter-spacing:.5px;text-align:center;line-height:1.6;
+  margin-top:14px;cursor:pointer;text-decoration:underline;text-underline-offset:2px;text-transform:capitalize;}
 /* Icon ligatures must not be transformed (would break "chevron_left" etc.). */
 .material-symbols-rounded{text-transform:none;}
 /* Two tertiary links on one line, divided by "|", to save vertical space. */
