@@ -9,7 +9,8 @@ const I = {
   en: {
     loc: 'en-US',
     job: 'Jobsite', who: 'Who are you?', sel: 'Select your name',
-    hint: 'Scanned at the jobsite • tap to start your day',
+    hint: 'Scanned at the Jobsite • Tap to Start Your Workday',
+    hintOut: 'Scanned at the Jobsite • Tap to End Your Workday',
     notyou: 'Not you?', notlisted: "My name isn't here",
     cancel: 'Cancel', done: 'Done', loading: 'Loading…',
     clockIn: 'Clock In', clockOut: 'Clock Out',
@@ -71,7 +72,8 @@ const I = {
   es: {
     loc: 'es',
     job: 'Obra', who: '¿Quién eres?', sel: 'Selecciona tu nombre',
-    hint: 'Escaneado en la obra • toca para empezar',
+    hint: 'Escaneado en la obra • Toca para empezar tu jornada',
+    hintOut: 'Escaneado en la obra • Toca para terminar tu jornada',
     notyou: '¿No eres tú?', notlisted: 'Mi nombre no está',
     cancel: 'Cancelar', done: 'Listo', loading: 'Cargando…',
     clockIn: 'Marcar Entrada', clockOut: 'Marcar Salida',
@@ -484,7 +486,9 @@ function updateWeekTotal() {
 function updateAuthLinks() {
   const type = state.worker && state.worker.type;
   $('secondaryBtn').textContent = (type === 'owner' || type === 'independent') ? t('viewInvoice') : t('myhours');
-  const loggedIn = !!localStorage.getItem('bfb_worker') && !!state.worker;
+  // Once a worker is identified (picked or remembered), show "Log Out"; the
+  // "My name isn't here" fallback is only for the no-worker (logged-out) screen.
+  const loggedIn = !!state.worker;
   const fb = $('fallbackBtn');
   fb.textContent = loggedIn ? t('logout') : t('notlisted');
   fb.dataset.mode = loggedIn ? 'logout' : 'fallback';
@@ -514,6 +518,7 @@ function setMainButton() {
   btn.classList.toggle('out', out);
   label.textContent = out ? t('clockOut') : t('clockIn');
   icon.textContent = out ? 'logout' : 'login';
+  $('hint').textContent = out ? t('hintOut') : t('hint'); // end vs start your workday
   // "Switch to Different Jobsite" only makes sense while clocked in today; a
   // prior-date open punch must be resolved via the normal clock-out first.
   const canSwitch = out && !state.noSite && !state.worker.openPriorDate;
