@@ -53,6 +53,10 @@
   .field input{width:100%;font-family:'Libre Franklin';font-weight:600;font-size:16px;color:var(--ink);background:#fff;border:1.5px solid var(--line);border-radius:9px;padding:12px 14px;}
   .field input:focus{outline:none;border-color:var(--brass);}
   .field .hint{font-size:11px;color:var(--soft);margin-top:4px;}
+  /* inline gray suggestion for the GC name field */
+  .ac-wrap{position:relative;}
+  .ac-ghost{position:absolute;inset:0;padding:12px 14px;font-family:'Libre Franklin';font-weight:600;font-size:16px;color:#b8b0a4;pointer-events:none;white-space:pre;display:flex;align-items:center;overflow:hidden;}
+  .ac-ghost b{color:transparent;font-weight:600;}
   .gcwrap{display:none;}
   .gcwrap.show{display:block;}
   .checkrow{display:flex;align-items:center;gap:10px;margin-top:16px;font-weight:600;font-size:14px;}
@@ -137,7 +141,10 @@
       <div class="field"><label>Buildertrend project (optional)</label><input id="fBt" autocomplete="off"></div>
       <div class="checkrow"><label class="switch"><input type="checkbox" id="fBills"><span class="slider"></span></label> Bills to a GC?</div>
       <div class="gcwrap" id="gcWrap">
-        <div class="field"><label>GC name</label><input id="fGcName" autocomplete="off"></div>
+        <div class="field"><label>GC name</label>
+          <div class="ac-wrap"><input id="fGcName" autocomplete="off" placeholder="e.g. Opus"><div class="ac-ghost" id="gcGhost" aria-hidden="true"></div></div>
+          <div class="hint" id="gcHint">Existing GCs are suggested in gray — press Tab to use one, so names match exactly.</div>
+        </div>
         <div class="field"><label>GC rate ($/hr)</label><input id="fGcRate" inputmode="decimal" placeholder="68"></div>
       </div>
       <div class="err" id="addErr"></div>
@@ -153,25 +160,11 @@
 <script>
   const $ = (id) => document.getElementById(id);
   let PROJECTS = [];
+  let GCNAMES = []; // existing GC names, for the add-form suggestion
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  /* ---------------- admin token (only for add/toggle) ---------------- */
-  function getToken(force) {
-    let t = localStorage.getItem('bfb_admin_token') || '';
-    if (!t || force) {
-      t = (prompt('Enter your admin token (only needed to add or change projects):') || '').trim();
-      if (t) localStorage.setItem('bfb_admin_token', t);
-    }
-    return t;
-  }
   async function adminPost(payload) {
-    let token = getToken(false);
-    if (!token) throw new Error('Admin token required');
-    let r = await fetch('/api/projects', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-token': token }, body: JSON.stringify(payload) });
-    if (r.status === 401) { // bad token — re-prompt once
-      token = getToken(true);
-      r = await fetch('/api/projects', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-token': token }, body: JSON.stringify(payload) });
-    }
+    const r = await fetch('/api/projects', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
     const data = await r.json();
     if (!data.ok) throw new Error(data.error || 'Failed');
     return data;
@@ -185,6 +178,7 @@
       const data = await r.json();
       if (!data.ok) { $('msg').textContent = data.error || 'Failed to load.'; return; }
       PROJECTS = data.projects;
+      GCNAMES = [...new Set(PROJECTS.map((p) => (p.gcName || '').trim()).filter(Boolean))];
       render();
     } catch (e) { $('msg').textContent = 'Error: ' + e.message; }
   }
@@ -307,6 +301,27 @@
   $('fSite').addEventListener('input', () => { if (!qrTouched) $('fQr').value = slug($('fSite').value); syncPreview(); });
   $('fQr').addEventListener('input', () => { qrTouched = true; syncPreview(); });
   window.__resetQrTouched = () => { qrTouched = false; };
+
+  // GC name: suggest an existing GC in gray (press Tab / → to accept) so names match.
+  const gcInput = $('fGcName'), gcGhost = $('gcGhost');
+  function updateGcGhost() {
+    const val = gcInput.value;
+    gcGhost.dataset.suggest = '';
+    if (!val) { gcGhost.innerHTML = ''; return; }
+    const match = GCNAMES.find((n) => n.toLowerCase().startsWith(val.toLowerCase()) && n.length > val.length);
+    if (match) { gcGhost.innerHTML = '<b>' + esc(val) + '</b>' + esc(match.slice(val.length)); gcGhost.dataset.suggest = match; }
+    else gcGhost.innerHTML = '';
+  }
+  gcInput.addEventListener('input', updateGcGhost);
+  gcInput.addEventListener('blur', () => { gcGhost.innerHTML = ''; });
+  gcInput.addEventListener('keydown', (e) => {
+    if (!gcGhost.dataset.suggest) return;
+    if (e.key === 'Tab' || e.key === 'Enter' || (e.key === 'ArrowRight' && gcInput.selectionStart === gcInput.value.length)) {
+      e.preventDefault();
+      gcInput.value = gcGhost.dataset.suggest;
+      updateGcGhost();
+    }
+  });
   window.addEventListener('afterprint', () => { $('printRoot').innerHTML = ''; });
 
   load();

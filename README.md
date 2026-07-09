@@ -66,7 +66,7 @@ in a local `.env` file (never committed) for `netlify dev`. See `.env.example`.
 | `SHEET_ID` | The datastore Sheet ID (`1CAVJjOG…MbPJfc`). |
 | `RESEND_API_KEY` | Resend API key (domain `backforty.builders` verified). |
 | `ACCOUNTING_EMAIL` | `accounting@backforty.builders` (from/copy address). |
-| `ADMIN_TOKEN` | Long random string; gates the invoice preview and adding/toggling projects on /qr.html. |
+| `ADMIN_TOKEN` | Long random string; gates only the invoice preview (`/api/invoice-preview`). |
 | `DRIVE_FOLDER_ID` | *(optional)* Drive folder for receipt photos; unset = materials save without a receipt link. |
 | `SITE_URL` | *(optional)* Public base URL for QR links; defaults to the production domain. |
 

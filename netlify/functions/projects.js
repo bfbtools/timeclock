@@ -1,11 +1,12 @@
 // /api/projects
 //   GET  → every project (active + inactive) with clock-in URL + QR code, for
-//          the /qr.html admin page. Open (QR codes are posted publicly).
-//   POST → create a project, or toggle a project's Active flag. Writes to the
-//          Sheet, so it's gated by ADMIN_TOKEN (send as ?token= or x-admin-token).
+//          the /qr.html admin page.
+//   POST → create a project, or toggle a project's Active flag (writes the Sheet).
+// Open (no token) per request — it's an internal admin page. If abuse ever
+// becomes a concern, reintroduce a token check in mutate().
 
 import QRCode from 'qrcode';
-import { json, body, query, guard } from './lib/http.js';
+import { json, body, guard } from './lib/http.js';
 import { readTab, appendRow, updateRow } from './lib/sheets.js';
 import { TABS } from './lib/config.js';
 
@@ -53,11 +54,6 @@ export default guard(async (req) => {
 });
 
 async function mutate(req) {
-  const expected = process.env.ADMIN_TOKEN;
-  const token = req.headers.get('x-admin-token') || query(req, 'token');
-  if (!expected) return json(403, { ok: false, error: 'ADMIN_TOKEN is not configured' });
-  if (token !== expected) return json(401, { ok: false, error: 'Unauthorized' });
-
   const b = await body(req);
   const { rows } = await readTab(TABS.PROJECTS);
 
