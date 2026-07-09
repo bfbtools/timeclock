@@ -224,6 +224,7 @@
     ['fSite', 'fQr', 'fBt', 'fGcName', 'fGcRate'].forEach((id) => $(id).value = '');
     $('fBills').checked = false; $('gcWrap').classList.remove('show'); $('addErr').textContent = '';
     $('qrPreview').textContent = 'french3';
+    if (window.__resetQrTouched) window.__resetQrTouched();
     $('addOverlay').classList.add('show');
   }
   async function submitAdd() {
@@ -300,8 +301,12 @@
   $('addCancel').addEventListener('click', () => $('addOverlay').classList.remove('show'));
   $('addSave').addEventListener('click', submitAdd);
   $('fBills').addEventListener('change', (e) => $('gcWrap').classList.toggle('show', e.target.checked));
-  $('fSite').addEventListener('input', () => { if (!$('fQr').value.trim()) $('qrPreview').textContent = slug($('fSite').value) || 'french3'; });
-  $('fQr').addEventListener('input', () => $('qrPreview').textContent = slug($('fQr').value) || 'french3');
+  // Site name auto-fills the QR word field (until the user edits it directly).
+  let qrTouched = false;
+  const syncPreview = () => $('qrPreview').textContent = slug($('fQr').value) || 'french3';
+  $('fSite').addEventListener('input', () => { if (!qrTouched) $('fQr').value = slug($('fSite').value); syncPreview(); });
+  $('fQr').addEventListener('input', () => { qrTouched = true; syncPreview(); });
+  window.__resetQrTouched = () => { qrTouched = false; };
   window.addEventListener('afterprint', () => { $('printRoot').innerHTML = ''; });
 
   load();
