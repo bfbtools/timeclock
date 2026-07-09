@@ -138,7 +138,6 @@
       <div class="field"><label>Site name</label><input id="fSite" autocomplete="off" placeholder="e.g. French 3"></div>
       <div class="field"><label>QR word (in the link)</label><input id="fQr" autocomplete="off" placeholder="french3">
         <div class="hint">Used in the QR link: …/?site=<b><span id="qrPreview">french3</span></b>. Lowercase, no spaces.</div></div>
-      <div class="field"><label>Buildertrend project (optional)</label><input id="fBt" autocomplete="off"></div>
       <div class="checkrow"><label class="switch"><input type="checkbox" id="fBills"><span class="slider"></span></label> Bills to a GC?</div>
       <div class="gcwrap" id="gcWrap">
         <div class="field"><label>GC name</label>
@@ -215,7 +214,7 @@
   /* ---------------- add new jobsite ---------------- */
   const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
   function openAdd() {
-    ['fSite', 'fQr', 'fBt', 'fGcName', 'fGcRate'].forEach((id) => $(id).value = '');
+    ['fSite', 'fQr', 'fGcName', 'fGcRate'].forEach((id) => $(id).value = '');
     $('fBills').checked = false; $('gcWrap').classList.remove('show'); $('addErr').textContent = '';
     $('qrPreview').textContent = 'french3';
     if (window.__resetQrTouched) window.__resetQrTouched();
@@ -230,7 +229,6 @@
     try {
       const data = await adminPost({
         op: 'create', siteName, qrParam,
-        btProject: $('fBt').value.trim(),
         billsToGC: $('fBills').checked,
         gcName: $('fGcName').value.trim(),
         gcRate: $('fGcRate').value.trim(),
