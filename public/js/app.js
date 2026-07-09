@@ -40,6 +40,8 @@ const I = {
     ap_which: 'Clock in or out?', ap_site: 'Jobsite', ap_day: 'Day', ap_time: 'Time', ap_save: 'Save',
     ap_in: 'Clock In', ap_out: 'Clock Out',
     ap_editIn: 'Edit Clock In', ap_editOut: 'Edit Clock Out',
+    removePunch: 'Remove Punch', removeConfirmTitle: 'Remove this punch?',
+    removeConfirmMsg: "This deletes the entry and can't be undone.", removeYes: 'Remove',
     apMissingBoth: 'Enter both a clock-in and a clock-out time.',
     apOrder: 'Clock-out must be after clock-in.',
     atSite: 'at', tapEdit: 'Tap a punch to fix its time',
@@ -103,6 +105,8 @@ const I = {
     ap_which: '¿Entrada o salida?', ap_site: 'Obra', ap_day: 'Día', ap_time: 'Hora', ap_save: 'Guardar',
     ap_in: 'Entrada', ap_out: 'Salida',
     ap_editIn: 'Editar entrada', ap_editOut: 'Editar salida',
+    removePunch: 'Eliminar marca', removeConfirmTitle: '¿Eliminar esta marca?',
+    removeConfirmMsg: 'Esto borra la entrada y no se puede deshacer.', removeYes: 'Eliminar',
     apMissingBoth: 'Ingresa la hora de entrada y de salida.',
     apOrder: 'La salida debe ser después de la entrada.',
     atSite: 'en', tapEdit: 'Toca una marca para corregir la hora',
@@ -202,6 +206,13 @@ const API = {
     if (state.data?.demo) return { ok: true };
     try {
       const r = await fetch('/api/punch-edit', { method: 'POST', headers: json, body: JSON.stringify(payload) });
+      return await r.json();
+    } catch { return { ok: false, error: t('err') }; }
+  },
+  async punchDelete(payload) {
+    if (state.data?.demo) return { ok: true };
+    try {
+      const r = await fetch('/api/punch-delete', { method: 'POST', headers: json, body: JSON.stringify(payload) });
       return await r.json();
     } catch { return { ok: false, error: t('err') }; }
   },
@@ -949,6 +960,7 @@ function openAddPunchForDay(date) {
   $('apDayLabel').textContent = fmtDayLong(date);
   $('apAddFields').style.display = '';
   $('apEditFields').style.display = 'none';
+  $('apRemove').classList.add('hidden'); // nothing to remove on a fresh add
   fillSiteOptions();
   writeTime('apTimeIn', ''); writeTime('apTimeOut', '');
   show('addpunch');
@@ -963,8 +975,39 @@ function openEditPunch(punch, date) {
   $('apDayLabel').textContent = fmtDayLong(date);
   $('apAddFields').style.display = 'none';
   $('apEditFields').style.display = '';
+  $('apRemove').classList.remove('hidden'); // editing an existing punch → can remove it
   writeTime('apTime', punch.time);
   show('addpunch');
+}
+// Small confirm dialog for destructive actions. Resolves true/false.
+function askConfirm({ title, msg, yes }) {
+  return new Promise((resolve) => {
+    $('cdTitle').textContent = title || t('removeConfirmTitle');
+    $('cdMsg').textContent = msg || '';
+    $('cdYesLabel').textContent = yes || t('removeYes');
+    const dlg = $('confirmDialog');
+    const done = (val) => {
+      dlg.classList.add('hidden');
+      $('cdYes').onclick = null; $('cdNo').onclick = null;
+      resolve(val);
+    };
+    $('cdYes').onclick = () => done(true);
+    $('cdNo').onclick = () => done(false);
+    dlg.classList.remove('hidden');
+  });
+}
+async function removePunch() {
+  const ok = await askConfirm({ title: t('removeConfirmTitle'), msg: t('removeConfirmMsg'), yes: t('removeYes') });
+  if (!ok) return;
+  showLoading(true);
+  const res = await API.punchDelete({
+    workerId: state.editTarget ? state.editTarget.id : state.worker.id,
+    actingId: state.worker.id, pin: state.authedPin, punchId: state.editPunchId,
+  });
+  if (!res.ok) { showLoading(false); alert(res.error || t('err')); return; }
+  await refreshTimelog();
+  showLoading(false);
+  show('timelog');
 }
 async function submitAddPunch() {
   const date = state.apDate;
@@ -1231,6 +1274,7 @@ function bind() {
   $('apBack').addEventListener('click', () => show('timelog'));
   $('apCancel').addEventListener('click', () => show('timelog'));
   $('apSubmit').addEventListener('click', submitAddPunch);
+  $('apRemove').addEventListener('click', removePunch);
 
   // team (Sub/Owner edits crew)
   $('teamBack').addEventListener('click', reopenInvoice);

@@ -228,6 +228,7 @@
         </div>
         <div class="spacer"></div>
         <button class="clock-btn" id="apSubmit"><span class="material-symbols-rounded">check</span><span data-i18n="ap_save">Save</span></button>
+        <button class="clock-btn ghost danger hidden" id="apRemove"><span class="material-symbols-rounded">delete</span><span data-i18n="removePunch">Remove Punch</span></button>
         <button class="linkbtn" id="apCancel" data-i18n="cancel">Cancel</button>
       </section>
 
@@ -349,6 +350,16 @@
     </div>
 
     <div class="loading hidden" id="loading" data-i18n="loading">Loading…</div>
+
+    <!-- ============ CONFIRM DIALOG (destructive actions) ============ -->
+    <div class="confirm-dialog hidden" id="confirmDialog">
+      <div class="cd-box">
+        <div class="cd-title" id="cdTitle">Remove this punch?</div>
+        <div class="cd-msg" id="cdMsg">This can't be undone.</div>
+        <button class="clock-btn" id="cdYes"><span class="material-symbols-rounded">delete</span><span id="cdYesLabel">Remove</span></button>
+        <button class="linkbtn" id="cdNo" data-i18n="cancel">Cancel</button>
+      </div>
+    </div>
   </div>
 
   <script src="/js/app.js" type="module"></script>

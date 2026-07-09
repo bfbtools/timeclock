@@ -124,6 +124,32 @@ export async function findRows(tabName, predicate) {
   return rows.filter(predicate);
 }
 
+/** The numeric sheetId (gid) for a tab, needed for structural edits. */
+async function getSheetId(tabName) {
+  const meta = await sheets().spreadsheets.get({
+    spreadsheetId: spreadsheetId(),
+    fields: 'sheets.properties(sheetId,title)',
+  });
+  const sheet = (meta.data.sheets || []).find((s) => s.properties.title === tabName);
+  if (!sheet) throw new Error(`Tab not found: ${tabName}`);
+  return sheet.properties.sheetId;
+}
+
+/** Delete a single row (1-based sheet row number) from a tab. */
+export async function deleteRow(tabName, rowNumber) {
+  const sheetId = await getSheetId(tabName);
+  await sheets().spreadsheets.batchUpdate({
+    spreadsheetId: spreadsheetId(),
+    requestBody: {
+      requests: [{
+        deleteDimension: {
+          range: { sheetId, dimension: 'ROWS', startIndex: rowNumber - 1, endIndex: rowNumber },
+        },
+      }],
+    },
+  });
+}
+
 // A(1) → "A", 27 → "AA", etc.
 function colLetter(n) {
   let s = '';
