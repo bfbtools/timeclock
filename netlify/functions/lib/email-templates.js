@@ -8,16 +8,23 @@ const fmt = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { m
 const fmtLong = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 const weekday = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
 const mmddyy = (iso) => { const [y, m, d] = iso.split('-'); return `${m}-${d}-${y.slice(2)}`; };
+// A project's date range from its sorted perDay list: "Jul 8" or "Jul 8 – Jul 10".
+const dateRange = (perDay) => {
+  if (!perDay || !perDay.length) return '';
+  const a = perDay[0].date, b = perDay[perDay.length - 1].date;
+  return a === b ? fmt(a) : `${fmt(a)} – ${fmt(b)}`;
+};
 
-// ---- shared pieces -------------------------------------------------------
-function row(left, right, opts = {}) {
-  const b = opts.bold ? 'font-weight:bold;' : '';
-  const c = opts.color || C.ink;
-  const border = opts.border === false ? '' : `border-bottom:1px solid ${C.line};`;
-  return `<tr><td style="padding:9px 0;${border}color:${c};${b}font-size:14px">${left}</td>
-    <td style="padding:9px 0;${border}color:${c};${b}font-size:14px;text-align:right;font-family:'Courier New',monospace">${right}</td></tr>`;
-}
-const table = (rows) => `<table style="width:100%;border-collapse:collapse">${rows}</table>`;
+// ---- shared table helpers (Project/Description · … · Qty · Rate · Amount) ----
+const thStyle = (align) => `padding:8px;border-bottom:2px solid ${C.forge};font-size:11px;font-weight:bold;color:${C.forge};text-transform:uppercase;letter-spacing:.5px;text-align:${align}`;
+const tdStyle = (align) => `padding:8px;border-bottom:1px solid ${C.line};font-size:13px;color:${C.ink};text-align:${align}` + (align === 'right' ? `;font-family:'Courier New',monospace` : '');
+const th = (label, align = 'left') => `<th style="${thStyle(align)}">${label}</th>`;
+const td = (v, align = 'left') => `<td style="${tdStyle(align)}">${v}</td>`;
+const tr = (cells) => `<tr>${cells.join('')}</tr>`;
+const totalRow = (label, value) => `<tr>
+    <td colspan="4" style="padding:12px 8px;text-align:right;font-size:14px;font-weight:bold;color:${C.ink}">${label}</td>
+    <td style="padding:12px 8px;text-align:right;font-size:15px;font-weight:bold;color:${C.ink};font-family:'Courier New',monospace">${value}</td></tr>`;
+const tableEl = (inner) => `<table style="width:100%;border-collapse:collapse">${inner}</table>`;
 
 // The message body: the Mon–Sun week and who was onsite each day.
 function rosterBody(inv) {
@@ -42,13 +49,14 @@ export function renderSubInvoiceEmail(inv, meta = {}) {
   const headerSub = `Invoice #${invNo} • ${meta.invoiceDate ? fmtLong(meta.invoiceDate) : ''} • Due on receipt`;
   const title = `${(inv.projectNames || []).join(', ')} – Back Forty Builders`;
 
-  const lines = inv.projects.map((p) => {
-    const days = p.perDay.map((d) => `${fmt(d.date)} ${d.hours}h`).join(' · ');
-    const rate = p.rate ? ` @ ${money(p.rate)}/hr` : '';
-    return row(`<b>${p.name}</b><br><span style="font-size:12px;color:${C.soft}">${p.hours}h${rate}<br>${days}</span>`, money(p.amount));
-  }).join('');
-  const mats = inv.materials.map((m) => row(`Materials${m.note ? ' — ' + m.note : ''}`, money(m.amount))).join('');
-  const total = row('TOTAL', money(inv.total), { bold: true, border: false, color: C.ink }); // black
+  const head = tr([th('Project'), th('Dates'), th('Qty', 'right'), th('Rate', 'right'), th('Amount', 'right')]);
+  const rows = inv.projects.map((p) => tr([
+    td(`<b>${p.name}</b>`), td(dateRange(p.perDay)),
+    td(String(p.hours), 'right'), td(p.rate ? money(p.rate) : '—', 'right'), td(money(p.amount), 'right'),
+  ])).join('');
+  const mats = inv.materials.map((m) => tr([
+    td(`Materials${m.note ? ' — ' + m.note : ''}`), td(''), td('', 'right'), td('', 'right'), td(money(m.amount), 'right'),
+  ])).join('');
 
   const card = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;background:${C.paper};border-radius:12px;overflow:hidden;border:1px solid ${C.line}">
     <div style="background:${C.forge};padding:20px 24px">
@@ -56,10 +64,10 @@ export function renderSubInvoiceEmail(inv, meta = {}) {
       <div style="color:${C.kraft};font-size:12px;font-weight:bold;letter-spacing:1px;margin-top:3px">${headerSub}</div>
     </div>
     <div style="height:4px;background:linear-gradient(90deg,${C.ember} 0 40%,${C.kraft} 40% 70%,${C.pine} 70% 100%)"></div>
-    <div style="padding:24px">
+    <div style="padding:24px 16px 16px">
       <div style="font-size:18px;font-weight:bold;color:${C.ink}">${title}</div>
       <div style="font-size:13px;color:${C.soft};margin-top:4px">Week ${fmt(inv.weekStart)} – ${fmt(inv.weekEnd)}</div>
-      <div style="margin-top:16px">${table(lines + mats + total)}</div>
+      <div style="margin-top:14px">${tableEl(head + rows + mats + totalRow('TOTAL', money(inv.total)))}</div>
     </div>
   </div>`;
 
@@ -72,32 +80,17 @@ export function renderSubInvoiceEmail(inv, meta = {}) {
 // ---- QB draft (QuickBooks line-item format, no top info) ------------------
 export function renderQBInvoiceEmail(qb, meta = {}) {
   const invNo = meta.invoiceNo || '';
-  const th = `padding:8px 8px;border-bottom:2px solid ${C.forge};font-size:12px;font-weight:bold;color:${C.forge};text-transform:uppercase;letter-spacing:.5px`;
-  const td = `padding:8px 8px;border-bottom:1px solid ${C.line};font-size:13px;color:${C.ink}`;
-  const tdr = `${td};text-align:right;font-family:'Courier New',monospace`;
-  const head = `<tr>
-    <th style="${th};text-align:left">Product/Service</th>
-    <th style="${th};text-align:left">Description</th>
-    <th style="${th};text-align:right">Qty</th>
-    <th style="${th};text-align:right">Rate</th>
-    <th style="${th};text-align:right">Amount</th></tr>`;
-  const body = qb.lines.map((l) => `<tr>
-    <td style="${td}"><b>${l.item}</b></td>
-    <td style="${td}">${l.description}</td>
-    <td style="${tdr}">${l.qty}</td>
-    <td style="${tdr}">${money(l.rate)}</td>
-    <td style="${tdr}">${money(l.amount)}</td></tr>`).join('');
-  const totalRow = `<tr>
-    <td colspan="4" style="padding:12px 8px;text-align:right;font-size:14px;font-weight:bold;color:${C.ink}">Total</td>
-    <td style="padding:12px 8px;text-align:right;font-size:15px;font-weight:bold;color:${C.ink};font-family:'Courier New',monospace">${money(qb.total)}</td></tr>`;
+  const head = tr([th('Product/Service'), th('Description'), th('Qty', 'right'), th('Rate', 'right'), th('Amount', 'right')]);
+  const body = qb.lines.map((l) => tr([
+    td(`<b>${l.item}</b>`), td(l.description),
+    td(String(l.qty), 'right'), td(money(l.rate), 'right'), td(money(l.amount), 'right'),
+  ])).join('');
 
   const details = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto 12px;color:${C.ink}">
     <div style="font-size:13px"><b>Invoice details</b></div>
     <div style="font-size:13px;color:${C.soft};margin-top:2px">Invoice #${invNo}${meta.invoiceDate ? ' • ' + fmtLong(meta.invoiceDate) : ''} • Due on receipt</div>
   </div>`;
-  const tableHtml = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto">
-    <table style="width:100%;border-collapse:collapse">${head}${body}${totalRow}</table>
-  </div>`;
+  const tableHtml = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto">${tableEl(head + body + totalRow('Total', money(qb.total)))}</div>`;
 
   return {
     subject: `QB draft #${invNo} — ${qb.company} — week of ${fmt(qb.weekStart)}`,
@@ -105,27 +98,29 @@ export function renderQBInvoiceEmail(qb, meta = {}) {
   };
 }
 
-// ---- GC draft (internal review; unchanged layout) ------------------------
+// ---- GC draft (internal review) ------------------------------------------
 export function renderGCInvoiceEmail(gc, meta = {}) {
   const invNo = meta.invoiceNo ? `#${meta.invoiceNo} ` : '';
-  const lines = gc.projects.map((p) => {
+  const head = tr([th('Project / worker'), th('Dates'), th('Qty', 'right'), th('Rate', 'right'), th('Amount', 'right')]);
+  const wkRange = `${fmt(gc.weekStart)} – ${fmt(gc.weekEnd)}`;
+  const rows = gc.projects.map((p) => {
     const parts = [];
-    if (p.standard) parts.push(row(`${p.name} — labor`, `${p.standard.hours}h @ ${money(p.standard.rate)} = ${money(p.standard.amount)}`));
-    p.overrides.forEach((o) => parts.push(row(`&nbsp;&nbsp;↳ ${o.worker}`, `${o.hours}h @ ${money(o.rate)} = ${money(o.amount)}`)));
+    if (p.standard) parts.push(tr([td(`<b>${p.name}</b>`), td(wkRange), td(String(p.standard.hours), 'right'), td(money(p.standard.rate), 'right'), td(money(p.standard.amount), 'right')]));
+    p.overrides.forEach((o) => parts.push(tr([td(`&nbsp;&nbsp;↳ ${o.worker} · ${p.name}`), td(wkRange), td(String(o.hours), 'right'), td(money(o.rate), 'right'), td(money(o.amount), 'right')])));
     return parts.join('');
   }).join('');
-  const lunch = row(`<span style="color:${C.soft}">Lunch deducted (0.75 hr/worker/day)</span>`, `<span style="color:${C.soft}">−${gc.lunchHours}h</span>`);
-  const total = row(`TOTAL · cost code ${gc.costCode}`, money(gc.total), { bold: true, border: false, color: C.ink });
+  const lunch = tr([td(`<span style="color:${C.soft}">Lunch deducted (0.75 hr/worker/day)</span>`), td(''), td(`−${gc.lunchHours}`, 'right'), td(''), td('')]);
+
   const card = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;background:${C.paper};border-radius:12px;overflow:hidden;border:1px solid ${C.line}">
     <div style="background:${C.forge};padding:20px 24px">
       <div style="color:#fff;font-size:20px;font-weight:bold">Back Forty Builders</div>
       <div style="color:${C.kraft};font-size:12px;font-weight:bold;letter-spacing:1px;margin-top:3px">GC invoice draft ${invNo}— review before sending</div>
     </div>
     <div style="height:4px;background:linear-gradient(90deg,${C.ember} 0 40%,${C.kraft} 40% 70%,${C.pine} 70% 100%)"></div>
-    <div style="padding:24px">
-      <div style="font-size:18px;font-weight:bold;color:${C.ink}">${gc.gcName}</div>
-      <div style="font-size:13px;color:${C.soft};margin-top:4px">Week ${fmt(gc.weekStart)} – ${fmt(gc.weekEnd)}</div>
-      <div style="margin-top:16px">${table(lines + lunch + total)}</div>
+    <div style="padding:24px 16px 16px">
+      <div style="font-size:18px;font-weight:bold;color:${C.ink}">${gc.gcName} <span style="font-size:12px;color:${C.soft};font-weight:normal">· cost code ${gc.costCode}</span></div>
+      <div style="font-size:13px;color:${C.soft};margin-top:4px">Week ${wkRange}</div>
+      <div style="margin-top:14px">${tableEl(head + rows + lunch + totalRow('TOTAL', money(gc.total)))}</div>
     </div>
   </div>`;
   return {
