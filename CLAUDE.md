@@ -2,7 +2,7 @@
 
 This project builds the BFB subcontractor time-clock web app (a Netlify-hosted web app + a Google Sheet datastore).
 
-**Before doing anything, read `docs/bfb-timeclock-spec.md` in full.** It contains the complete spec: tech stack/setup, all five screens, the seven-tab data model, the business rules (rates, lunch, Carlito overrides, Mon–Sat week), the invoicing logic, the build order, and the guardrails.
+**Before doing anything, read `docs/bfb-timeclock-spec.md` in full.** It contains the complete spec: tech stack/setup, all five screens, the seven-tab data model, the business rules (rates, lunch, Carlito overrides, Mon–Sun week), the invoicing logic, the build order, and the guardrails.
 
 The approved visual styling is `public/assets/BFB_TimeClock_ClockIn_Preview.html` — match it exactly. Brand tokens are in `docs/bfb-brand-guidelines.md`.
 

@@ -53,7 +53,7 @@ the language gate, and `/qr.html` (add / toggle / print all / print one).
   `?cb=` + swap the `styles.css`/`app.js` href, or just test on the **live site**
   with a hard-refresh.
 - Timestamps are stored as **ET wall-clock** `"YYYY-MM-DD HH:mm:ss"`.
-- Week is **Mon–Sat**; `WEEK_LENGTH_DAYS` in `lib/config.js` → 7 enables Sundays
-  (Sunday hours are always flagged either way).
+- Week is **Mon–Sun** (`WEEK_LENGTH_DAYS = 7` in `lib/config.js`; set to 6 for
+  Mon–Sat). Sunday hours are flagged either way.
 - Service-account key lives in `~/Downloads/bfb-time-clock-3a1486ea1193.json`
   (used by local check scripts; never committed).

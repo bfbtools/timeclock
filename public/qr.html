@@ -179,7 +179,10 @@
       PROJECTS = data.projects;
       GCNAMES = [...new Set(PROJECTS.map((p) => (p.gcName || '').trim()).filter(Boolean))];
       render();
-    } catch (e) { $('msg').textContent = 'Error: ' + e.message; }
+    } catch (e) {
+      console.error('Failed to load jobsites:', e); // keep detail for debugging
+      $('msg').textContent = "Couldn't load jobsites — check your connection and refresh.";
+    }
   }
   function sortProjects() {
     PROJECTS.sort((a, b) => (a.active === b.active ? a.siteName.localeCompare(b.siteName) : (a.active ? -1 : 1)));

@@ -2,7 +2,7 @@
 // PIN-gated. For a sub OWNER or INDEPENDENT, returns the live draft of this
 // week's sub invoice (what BFB pays): one line per project (hours × pay rate)
 // with a per-day breakdown, plus any materials. This is the same structure the
-// Saturday auto-send uses (Step 5). Employees don't get an invoice (they use
+// weekly auto-send uses (Step 5). Employees don't get an invoice (they use
 // the Time Log) — the client routes by worker type, and this guards too.
 
 import { json, query, guard } from './lib/http.js';

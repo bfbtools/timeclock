@@ -23,7 +23,7 @@ User groups:
 ## Tech stack
 
 - **Front end:** static site (vanilla HTML/CSS/JS, matching the approved preview). Hosted on **Netlify** at `timeclock.backforty.builders`.
-- **Backend:** **Netlify Functions** (Node) for clock punches and invoice generation; a **Netlify Scheduled Function** for the Saturday-midnight invoicing.
+- **Backend:** **Netlify Functions** (Node) for clock punches and invoice generation; a **Netlify Scheduled Function** for the weekly invoicing (fires Monday early-AM, just after the Sunday-midnight week close).
 - **Datastore:** the Google Sheet, read/written via the **Google Sheets API v4** using a **service account** (`googleapis` npm). Sheet ID: `1CAVJjOGH0zxfTaEnuUcP6HBhRrtld6UfMZzWZMbPJfc`.
 - **Email:** **Resend** (domain-verified for backforty.builders), sending invoices from accounting@backforty.builders.
 
@@ -52,7 +52,7 @@ Match **`assets/BFB_TimeClock_ClockIn_Preview.html`** exactly: warm light theme,
 1. **Scan the site QR** → app opens; the site/project is set from the `?site=` param (auto, not chosen).
 2. **Identify:** pick your name (device-remembered via localStorage; dropdown fallback) → enter 4-digit PIN. First time for a person: they set the PIN (stored in the Sheet so Adrienne can retrieve it).
 3. **Clock In / Clock Out** — one state-aware button + distinct in/out confirmation animations. Multiple in/out pairs per day allowed. On scan, an open punch from a **prior date** prompts for the missed clock-out time first. A subcontractor owner's clock-out screen shows a **Materials** field (amount + optional note + optional receipt photo → uploaded to Drive, link stored).
-4. **Secondary tab (PIN-gated):** employees → **Time Log** (their week; add a missed punch; entries lock read-only after the Saturday cutoff, still visible; edits/manual adds flagged). Subcontractor owners/independents → **Invoice [date] Draft** (live preview of the auto-send invoice). The tab requires the person's PIN to open, and the Time Log requires PIN again to add or edit a punch — so no one can view or change someone else's hours or a sub's invoice.
+4. **Secondary tab (PIN-gated):** employees → **Time Log** (their week; add a missed punch; entries lock read-only after the Sunday-midnight cutoff, still visible; edits/manual adds flagged). Subcontractor owners/independents → **Invoice [date] Draft** (live preview of the auto-send invoice). The tab requires the person's PIN to open, and the Time Log requires PIN again to add or edit a punch — so no one can view or change someone else's hours or a sub's invoice.
 
 **Account creation is backend** (Adrienne edits the Sheet). The only in-app path is the **"My name isn't here" fallback:** first + last name, pick sub, set a PIN → creates a Worker row flagged `pending review`, inherits the sub's default rate (never self-set), and can clock in immediately.
 
@@ -75,12 +75,12 @@ Match **`assets/BFB_TimeClock_ClockIn_Preview.html`** exactly: warm light theme,
 - **Carlito** (San Ignacio): pay $35 / GC $40 via his per-worker overrides.
 - **GC projects:** any project with `BillsToGC=Y` (currently Opus: French 1/2, Camp Johnson, Apple Tree, Sun and Ski at $68; Kenn Construction: Stone Crop at $68).
 - **Lunch:** flat 0.75 hr/worker/day deducted **only on the GC invoice**. Not on what BFB pays subs; not on independent invoices.
-- **Week:** Monday–Saturday (no Sundays).
+- **Week:** Monday–Sunday (Sunday is a normal paid workday; set via `WEEK_LENGTH_DAYS` in `lib/config.js`, currently 7).
 - **Hours:** pair IN/OUT per worker per day in order; sum intervals; flag unpaired punches.
 
 ## Invoicing
 
-- **Independent subs:** auto-generate + auto-send **midnight end of Saturday**, covering Mon–Sat, to accounting@backforty.builders + the sub. One line per project (hours × rate) with a per-day breakdown in the description; plus a Materials line if any. Via the scheduled function + Resend.
+- **Independent subs:** auto-generate + auto-send at the **Sunday-midnight** week close (the scheduled run fires Monday early-AM), covering Mon–Sun, to accounting@backforty.builders + the sub. One line per project (hours × rate) with a per-day breakdown in the description; plus a Materials line if any. Via the scheduled function + Resend.
 - **Company subs:** per-sub `AutoInvoice` toggle. San Ignacio + Lopez = ON; SnowPeak = OFF (can pull a draft).
 - **QB invoice** (company subs): $50/hr, "Carpentry"; drafted from clocked hours; emailed to accounting@.
 - **GC invoice** (e.g., Opus): $68/hr with the 0.75 lunch deduction and Carlito separated; generated as a **draft Adrienne reviews and sends** (not auto-fired to the GC); details emailed to accounting@. Cost code ref `01 31 00`. (BT sub-labor code ref `06 00 10`.)
@@ -89,7 +89,7 @@ Match **`assets/BFB_TimeClock_ClockIn_Preview.html`** exactly: warm light theme,
 
 1. Repo scaffold + Netlify config + env wiring + Sheets service-account read/write helper.
 2. Front end from the preview: clock-in/out, identify (name + PIN), site-from-QR, animations, multi-punch, missed-clock-out recovery, "my name isn't here" fallback.
-3. Rollup engine: pairing, daily/weekly hours, lunch, Carlito, Mon–Sat.
+3. Rollup engine: pairing, daily/weekly hours, lunch, Carlito, Mon–Sun.
 4. Employee Time Log; Subcontractor Invoice Draft.
 5. Invoicing: independent scheduled auto-send (Resend), company toggle, QB + GC drafts.
 6. Materials capture + Drive receipt upload; RateLog + change email.

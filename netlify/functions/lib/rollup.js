@@ -2,7 +2,7 @@
 // intervals, daily/weekly hours, and rate-resolved amounts. Business rules:
 // docs/bfb-timeclock-spec.md § Business rules + Invoicing.
 //
-//   - Week is Monday–Saturday (no Sundays).
+//   - Week starts Monday; span is WEEK_LENGTH_DAYS (currently 7 = Mon–Sun).
 //   - Pair IN/OUT per worker per day in time order; sum intervals; flag unpaired.
 //   - Pay rate  = what BFB pays the sub  (worker override → sub default → $50).
 //   - GC rate   = what BFB bills the GC  (worker override → project GCRate),
@@ -48,7 +48,7 @@ export function dow(dateStr) {
 export function isSunday(dateStr) {
   return dow(dateStr) === 0;
 }
-// Monday that starts the Mon–Sat week containing dateStr.
+// Monday that starts the week containing dateStr.
 export function mondayOf(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
   const delta = (d.getDay() + 6) % 7; // Sun→6, Mon→0, … Sat→5
@@ -56,7 +56,7 @@ export function mondayOf(dateStr) {
   return isoDate(d);
 }
 // { start: Monday, end: last billing day } for the week containing dateStr.
-// Span is WEEK_LENGTH_DAYS (6 = Mon–Sat by default).
+// Span is WEEK_LENGTH_DAYS (currently 7 = Mon–Sun; 6 = Mon–Sat).
 export function weekRange(dateStr) {
   const start = mondayOf(dateStr);
   const end = new Date(start + 'T00:00:00');
@@ -165,7 +165,7 @@ export function gcBillableHours(workedHours) {
 }
 
 /* --------------------------------------------------- weekly worker summary */
-// Summarize one worker across a week (Mon–Sat) for sub-pay purposes.
+// Summarize one worker across a week (Mon–Sun) for sub-pay purposes.
 // `punches` may span more than the week; only in-week, non-Sunday days count.
 export function summarizeWorkerWeek({ worker, sub, punches, weekStartMonday }) {
   const week = weekStartMonday || (punches.length ? mondayOf(dayKey(punches[0].Timestamp)) : null);

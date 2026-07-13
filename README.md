@@ -33,7 +33,7 @@ bfb-timeclock/
 │   ├── worker.js               # POST /api/worker — "my name isn't here" fallback
 │   ├── timelog.js              # GET  /api/timelog — a worker's week (PIN-gated)
 │   ├── invoice.js              # GET  /api/invoice — sub invoice draft (PIN-gated)
-│   ├── invoice-run.js          # SCHEDULED — Saturday auto-send (Sun 06:00 UTC)
+│   ├── invoice-run.js          # SCHEDULED — weekly auto-send (Mon 06:00 UTC, after Sun-midnight close)
 │   ├── invoice-preview.js      # GET  /api/invoice-preview — admin dry-run/manual run
 │   ├── material.js             # POST /api/material — owner materials + receipt
 │   ├── rate.js                 # POST /api/rate — change pay rate (RateLog + email)
@@ -41,7 +41,7 @@ bfb-timeclock/
 │   └── lib/
 │       ├── sheets.js           # Google Sheets read/write helper
 │       ├── model.js            # domain helpers (roster, punch state, ET time)
-│       ├── rollup.js           # pairing, hours, rates, lunch, Mon–Sat (tested)
+│       ├── rollup.js           # pairing, hours, rates, lunch, Mon–Sun (tested)
 │       ├── invoice-lib.js      # sub / QB / GC invoice builders (tested)
 │       ├── invoicing.js        # week orchestration: generate + send + log
 │       ├── email.js            # Resend wrapper
@@ -110,9 +110,9 @@ the message says what's wrong (missing env var, bad JSON, or Sheet not shared).
 
 1. ✅ Scaffold + Netlify config + Sheets read/write helper.
 2. ✅ Front end from the approved preview + API functions (site/auth/punch/worker).
-3. ✅ Rollup engine (pairing, hours, lunch, Carlito, Mon–Sat) + unit tests (`npm test`).
+3. ✅ Rollup engine (pairing, hours, lunch, Carlito, Mon–Sun) + unit tests (`npm test`).
 4. ✅ PIN-gated Time Log (employees) + Invoice Draft (owners/independents).
-5. ✅ Invoicing: Saturday scheduled auto-send, AutoInvoice toggle, QB + GC drafts, InvoiceLog, admin dry-run.
+5. ✅ Invoicing: Monday scheduled auto-send (after Sun-midnight close), AutoInvoice toggle, QB + GC drafts, InvoiceLog, admin dry-run.
 6. ✅ Materials capture + Drive receipt upload; RateLog + rate-change email.
 
 **All six build steps complete.** Remaining to go live: your cloud setup

@@ -1,5 +1,5 @@
 // Invoice builder — pure functions over rollup output. Used by the live
-// "Invoice Draft" tab (Step 4) and the Saturday auto-send (Step 5).
+// "Invoice Draft" tab (Step 4) and the weekly auto-send (Step 5).
 //
 // The SUB invoice is what BFB pays the sub: one line per project
 // (hours × pay rate) with a per-day breakdown, plus a Materials line if any.

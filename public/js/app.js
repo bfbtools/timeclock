@@ -29,7 +29,7 @@ const I = {
     scan_nocam: "Can't open the camera. Allow camera access, or use your phone's camera app to scan the QR.",
     scan_bad: "That code isn't a BFB jobsite QR. Try the one posted at the site.",
     myhours: 'View my hours', viewInvoice: 'View Invoice Draft', logout: 'Log Out', back: 'Back',
-    tl_title: 'My time', tl_locked: 'Locked — the week closed Saturday',
+    tl_title: 'My time', tl_locked: 'Locked — the week closed Sunday',
     tl_total: 'Current Week Total', tl_add: 'Add a missed punch', weekTotal: 'Week Total', todayTotal: 'Today Total',
     tl_submit: 'Submit Edits', tl_addHours: 'Add Hours',
     editsSubmitted: 'EDITS<br>SUBMITTED',
@@ -94,7 +94,7 @@ const I = {
     scan_nocam: 'No se puede abrir la cámara. Permite el acceso o usa la app de cámara de tu teléfono para escanear.',
     scan_bad: 'Ese código no es un QR de obra BFB. Usa el que está colocado en la obra.',
     myhours: 'Ver mis horas', viewInvoice: 'Ver borrador de factura', logout: 'Cerrar sesión', back: 'Atrás',
-    tl_title: 'Mi tiempo', tl_locked: 'Cerrado — la semana terminó el sábado',
+    tl_title: 'Mi tiempo', tl_locked: 'Cerrado — la semana terminó el domingo',
     tl_total: 'Total semana actual', tl_add: 'Agregar marca olvidada', weekTotal: 'Total semana', todayTotal: 'Total de hoy',
     tl_submit: 'Enviar cambios', tl_addHours: 'Agregar horas',
     editsSubmitted: 'CAMBIOS<br>ENVIADOS',
@@ -218,7 +218,9 @@ const API = {
   },
   async worker(payload) {
     if (state.data?.demo) {
-      return { ok: true, worker: { id: 'demo-new', name: payload.first, sub: subName(payload.subId), type: 'employee', status: 'out', hasPin: true } };
+      // hasPin:false so a self-added worker goes through the set-PIN flow, matching
+      // the real /api/worker (netlify/functions/worker.js), not the enter-PIN flow.
+      return { ok: true, worker: { id: 'demo-new', name: [payload.first, payload.last].filter(Boolean).join(' '), sub: subName(payload.subId), type: 'employee', status: 'out', hasPin: false } };
     }
     try {
       const r = await fetch('/api/worker', { method: 'POST', headers: json, body: JSON.stringify(payload) });
@@ -518,7 +520,9 @@ function setMainButton() {
   $('switchBtn').classList.add('hidden'); // shown only in the clocked-in branch below
   if (state.noSite) {
     btn.disabled = true; btn.classList.remove('out');
-    label.textContent = t('noSiteShort'); icon.textContent = 'qr_code_scanner'; return;
+    label.textContent = t('noSiteShort'); icon.textContent = 'qr_code_scanner';
+    $('hint').textContent = ''; // no "tap to start/end your workday" line at the scan-home
+    return;
   }
   if (!state.worker) {
     btn.disabled = true; btn.classList.remove('out');

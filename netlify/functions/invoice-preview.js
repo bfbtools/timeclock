@@ -1,9 +1,9 @@
 // GET /api/invoice-preview?token=...&week=YYYY-MM-DD&send=0
 // Admin-only. Dry-runs the week's invoicing so Adrienne can see exactly what
-// the Saturday job WOULD generate (totals, who auto-sends, GC/QB drafts) before
+// the weekly job WOULD generate (totals, who auto-sends, GC/QB drafts) before
 // it fires — and can trigger a real run on demand with &send=1 (e.g. to pull a
 // SnowPeak draft or re-run a week). Gated by ADMIN_TOKEN so financials aren't
-// public. Defaults to the most recently completed Mon–Sat week.
+// public. Defaults to the most recently completed Mon–Sun week.
 
 import { json, query, guard } from './lib/http.js';
 import { etParts } from './lib/model.js';
