@@ -611,7 +611,12 @@ function afterAuth(pin) {
 }
 function openRecovery() {
   showLoading(false);
-  $('recDay').value = state.worker.openInfo?.label || '';
+  // The live backend sends openInfo = { date } (an ISO day) with no label; only
+  // the offline demo supplies a prebuilt `label`. Format the day here from the
+  // date so the readonly "Day you worked" field always shows the shift's date.
+  const info = state.worker.openInfo || {};
+  $('recDay').value = info.label
+    || (info.date ? new Date(info.date + 'T00:00:00').toLocaleDateString(I[lang].loc, { weekday: 'long', month: 'long', day: 'numeric' }) : '');
   writeTime('recTime', '');
   show('recovery');
 }
