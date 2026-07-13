@@ -10,6 +10,9 @@ import { LUNCH_HOURS, QB_RATE, COST_CODE_GC } from './config.js';
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const nameOf = (w) => (w.Nickname && String(w.Nickname).trim()) || w.First || '';
+const firstNameOf = (w) => (w.First && String(w.First).trim()) || (w.Nickname && String(w.Nickname).trim()) || '';
+// date -> Set(firstName)  becomes  [{ date, names:[...] }] sorted by date
+const rosterDays = (roster) => [...roster.entries()].sort().map(([date, names]) => ({ date, names: [...names].sort() }));
 
 // Build the sub-facing invoice for one sub for one week.
 //   sub          : Subs row
@@ -28,6 +31,7 @@ export function buildSubInvoice({ sub, workers, punches, materials = [], project
   }
 
   const projAgg = new Map(); // projectId -> { hours, amount, perDay:Map, rates:Set }
+  const roster = new Map();  // date -> Set(firstName) — who was onsite that day
   const flags = [];
   const workerLines = [];
 
@@ -40,6 +44,11 @@ export function buildSubInvoice({ sub, workers, punches, materials = [], project
     if (s.weekHours > 0) workerLines.push({ worker: nameOf(w), hours: s.weekHours, rate: s.payRate, amount: s.pay });
 
     for (const d of s.days) {
+      const dayHours = Object.values(d.projectHours).reduce((a, b) => a + b, 0);
+      if (dayHours > 0) {
+        if (!roster.has(d.date)) roster.set(d.date, new Set());
+        roster.get(d.date).add(firstNameOf(w));
+      }
       for (const [proj, hrs] of Object.entries(d.projectHours)) {
         if (!projAgg.has(proj)) projAgg.set(proj, { hours: 0, amount: 0, perDay: new Map(), rates: new Set() });
         const a = projAgg.get(proj);
@@ -73,8 +82,11 @@ export function buildSubInvoice({ sub, workers, punches, materials = [], project
     company: sub && sub.CompanyName,
     weekStart, weekEnd: end,
     projects, workerLines, laborTotal,
+    projectNames: projects.map((p) => p.name),
+    totalHours: round2(projects.reduce((s, p) => s + p.hours, 0)),
     materials: mats, materialsTotal,
     total: round2(laborTotal + materialsTotal),
+    days: rosterDays(roster),
     flags,
   };
 }
@@ -160,9 +172,13 @@ export function buildGCInvoice({ gcName, gcProjects, workersById, punches, weekS
 }
 
 // ---------------------------------------------------------------------------
-// QB invoice — company-sub labor billed flat at $50/hr "Carpentry" (no lunch
-// deduction). Drafted from clocked hours and emailed to accounting@.
-export function buildQBInvoice({ sub, workers, punches, weekStart, rate = QB_RATE }) {
+// QB invoice — company-sub labor drafted for QuickBooks, emailed to accounting@.
+// QuickBooks-style line items, one per project × role:
+//   - "Carpentry"      = hours by workers on the sub's default rate ($50)
+//   - "General Labor"  = hours by workers with a per-worker pay-rate override
+//                        (e.g. Carlito @ $35), one line per such worker
+// No lunch deduction. `carpentryRate` is the label rate for standard hours.
+export function buildQBInvoice({ sub, workers, punches, projectsById = {}, weekStart, carpentryRate = QB_RATE }) {
   const { end } = weekRange(weekStart);
   const byWorker = new Map();
   for (const p of punches) {
@@ -170,28 +186,68 @@ export function buildQBInvoice({ sub, workers, punches, weekStart, rate = QB_RAT
     if (!byWorker.has(k)) byWorker.set(k, []);
     byWorker.get(k).push(p);
   }
-  const byWorkerLines = [];
+
+  // projectId -> { carpentry:hours, overrides: Map(workerId -> {name, rate, hours}) }
+  const agg = new Map();
+  const roster = new Map();
   const flags = [];
-  let totalHours = 0;
   for (const w of workers) {
     const s = summarizeWorkerWeek({
       worker: w, sub, weekStartMonday: weekStart,
       punches: byWorker.get(String(w.WorkerID).trim()) || [],
     });
     s.flags.forEach((f) => flags.push({ worker: nameOf(w), ...f }));
-    if (s.weekHours > 0) {
-      byWorkerLines.push({ worker: nameOf(w), hours: s.weekHours, amount: round2(s.weekHours * rate) });
-      totalHours += s.weekHours;
+    const override = num(w.PayRateOverride); // null when on the sub default
+    for (const d of s.days) {
+      const dayHours = Object.values(d.projectHours).reduce((a, b) => a + b, 0);
+      if (dayHours > 0) {
+        if (!roster.has(d.date)) roster.set(d.date, new Set());
+        roster.get(d.date).add(firstNameOf(w));
+      }
+      for (const [proj, hrs] of Object.entries(d.projectHours)) {
+        if (!agg.has(proj)) agg.set(proj, { carpentry: 0, overrides: new Map() });
+        const a = agg.get(proj);
+        if (override !== null) {
+          const wid = String(w.WorkerID).trim();
+          const o = a.overrides.get(wid) || { name: nameOf(w), rate: override, hours: 0 };
+          o.hours += hrs; a.overrides.set(wid, o);
+        } else {
+          a.carpentry += hrs;
+        }
+      }
     }
   }
-  totalHours = round2(totalHours);
+
+  const wk = weekLabelSlash(weekStart);
+  const lines = [];
+  const projList = [...agg.entries()]
+    .map(([pid, a]) => ({ name: (projectsById[pid] && projectsById[pid].SiteName) || pid, a }))
+    .sort((x, y) => x.name.localeCompare(y.name));
+  for (const { name, a } of projList) {
+    if (a.carpentry > 0) {
+      const qty = round2(a.carpentry);
+      lines.push({ item: 'Carpentry', description: `${name} – Week of ${wk}`, qty, rate: carpentryRate, amount: round2(qty * carpentryRate) });
+    }
+    for (const o of a.overrides.values()) {
+      const qty = round2(o.hours);
+      lines.push({ item: 'General Labor', description: `${o.name} – ${name} – Week of ${wk}`, qty, rate: o.rate, amount: round2(qty * o.rate) });
+    }
+  }
+
   return {
     subId: sub && String(sub.SubID).trim(),
     company: sub && sub.CompanyName,
     weekStart, weekEnd: end,
-    item: 'Carpentry', rate, hours: totalHours,
-    byWorker: byWorkerLines,
-    total: round2(totalHours * rate),
+    lines,
+    totalHours: round2(lines.reduce((s, l) => s + l.qty, 0)),
+    total: round2(lines.reduce((s, l) => s + l.amount, 0)),
+    days: rosterDays(roster),
     flags,
   };
+}
+
+// "2026-07-06" -> "07/06/26" (for QB line-item "Week of ..." descriptions).
+function weekLabelSlash(iso) {
+  const [y, m, d] = iso.split('-');
+  return `${m}/${d}/${y.slice(2)}`;
 }

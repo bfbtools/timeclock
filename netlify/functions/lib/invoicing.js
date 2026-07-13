@@ -10,7 +10,7 @@ import { readTab, appendRow } from './sheets.js';
 import { TABS } from './config.js';
 import { mondayOf, weekRange, dayKey } from './rollup.js';
 import { buildSubInvoice, buildQBInvoice, buildGCInvoice } from './invoice-lib.js';
-import { etStamp } from './model.js';
+import { etStamp, etParts } from './model.js';
 import { sendEmail } from './email.js';
 import { renderSubInvoiceEmail, renderQBInvoiceEmail, renderGCInvoiceEmail } from './email-templates.js';
 
@@ -75,8 +75,8 @@ export function generateWeekInvoices({ subs, workers, projects, punches, materia
     }
 
     if (isY(sub.HasEmployees)) {
-      const qb = buildQBInvoice({ sub, workers: subWorkers, punches: subPunches, weekStart });
-      if (qb.hours > 0) qbInvoices.push({ sub, qb });
+      const qb = buildQBInvoice({ sub, workers: subWorkers, punches: subPunches, projectsById, weekStart });
+      if (qb.totalHours > 0) qbInvoices.push({ sub, qb });
     }
   });
 
@@ -115,51 +115,73 @@ export async function deliverWeek({ gen, send }) {
   const acct = process.env.ACCOUNTING_EMAIL || 'accounting@backforty.builders';
   const testTo = (process.env.TEST_INVOICE_EMAIL || '').trim();
   const subj = (s) => (testTo ? `[TEST] ${s}` : s);
+  const invoiceDate = etParts().date; // the run date (ISO), shown on each invoice
+  let nextNo = await nextInvoiceNumber(); // sequential invoice #, continues across weeks
   const results = [];
   let seq = 0;
 
-  const logRow = (type, id, total, status, sentTo, ws, we) =>
+  const logRow = (type, id, invNo, hours, amount, status, sentTo, ws, we) =>
     appendRow(TABS.INVOICE_LOG, {
-      InvoiceID: `INV-${type}-${Date.now()}-${seq++}`, Date: etStamp(),
-      SubID: id, WeekStart: ws, WeekEnd: we, Total: total,
+      InvoiceID: `INV-${type}-${Date.now()}-${seq++}`, InvoiceNo: invNo, Date: etStamp(),
+      SubID: id, WeekStart: ws, WeekEnd: we,
+      'Total Hours': hours, 'Total Amount': amount,
       Type: type.toLowerCase(), Status: status, SentTo: sentTo,
     });
 
   for (const { sub, invoice, autoSend } of gen.subInvoices) {
+    const invoiceNo = nextNo++;
     const to = testTo ? [testTo] : [acct, sub.Email].filter(Boolean);
     let status = autoSend ? 'sent' : 'draft';
     let sentTo = autoSend ? to.join(', ') : '';
     if (send && autoSend) {
-      try { const { subject, html } = renderSubInvoiceEmail(invoice); await sendEmail({ to, subject: subj(subject), html }); }
+      try { const { subject, html } = renderSubInvoiceEmail(invoice, { invoiceNo, invoiceDate }); await sendEmail({ to, subject: subj(subject), html }); }
       catch (e) { status = 'error'; sentTo = e.message; }
     }
     // Skip the log in test mode: a row here would make the scheduled run treat
     // the week as already invoiced and skip the real send.
-    if (send && !testTo) await logRow('sub', invoice.subId, invoice.total, status, sentTo, invoice.weekStart, invoice.weekEnd);
-    results.push({ type: 'sub', company: sub.CompanyName, total: invoice.total, status, autoSend, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
+    if (send && !testTo) await logRow('sub', invoice.subId, invoiceNo, invoice.totalHours, invoice.total, status, sentTo, invoice.weekStart, invoice.weekEnd);
+    results.push({ type: 'sub', company: sub.CompanyName, invoiceNo, total: invoice.total, status, autoSend, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
   }
 
   for (const { sub, qb } of gen.qbInvoices) {
+    const invoiceNo = nextNo++;
     const to = testTo || acct;
     let status = 'draft', sentTo = to;
     if (send) {
-      try { const { subject, html } = renderQBInvoiceEmail(qb); await sendEmail({ to, subject: subj(subject), html }); }
+      try { const { subject, html } = renderQBInvoiceEmail(qb, { invoiceNo, invoiceDate }); await sendEmail({ to, subject: subj(subject), html }); }
       catch (e) { status = 'error'; sentTo = e.message; }
-      if (!testTo) await logRow('QB', qb.subId, qb.total, status, sentTo, qb.weekStart, qb.weekEnd);
+      if (!testTo) await logRow('QB', qb.subId, invoiceNo, qb.totalHours, qb.total, status, sentTo, qb.weekStart, qb.weekEnd);
     }
-    results.push({ type: 'QB', company: qb.company, total: qb.total, status, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
+    results.push({ type: 'QB', company: qb.company, invoiceNo, total: qb.total, status, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
   }
 
   for (const { gc } of gen.gcInvoices) {
+    const invoiceNo = nextNo++;
     const to = testTo || acct;
+    const gcHours = Math.round(gc.projects.reduce((s, p) => s + (p.hours || 0), 0) * 100) / 100;
     let status = 'draft', sentTo = to;
     if (send) {
-      try { const { subject, html } = renderGCInvoiceEmail(gc); await sendEmail({ to, subject: subj(subject), html }); }
+      try { const { subject, html } = renderGCInvoiceEmail(gc, { invoiceNo, invoiceDate }); await sendEmail({ to, subject: subj(subject), html }); }
       catch (e) { status = 'error'; sentTo = e.message; }
-      if (!testTo) await logRow('GC', gc.gcName, gc.total, status, sentTo, gc.weekStart, gc.weekEnd);
+      if (!testTo) await logRow('GC', gc.gcName, invoiceNo, gcHours, gc.total, status, sentTo, gc.weekStart, gc.weekEnd);
     }
-    results.push({ type: 'GC', gc: gc.gcName, total: gc.total, status, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
+    results.push({ type: 'GC', gc: gc.gcName, invoiceNo, total: gc.total, status, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
   }
 
   return results;
+}
+
+// Next sequential invoice number, continuing from the highest already in the
+// InvoiceLog (starts at 1001). Test-mode runs don't log, so they don't consume
+// real numbers.
+async function nextInvoiceNumber() {
+  try {
+    const { rows } = await readTab(TABS.INVOICE_LOG);
+    let max = 1000;
+    for (const r of rows) {
+      const n = parseInt(String(r.InvoiceNo).trim(), 10);
+      if (Number.isFinite(n) && n > max) max = n;
+    }
+    return max + 1;
+  } catch { return 1001; }
 }

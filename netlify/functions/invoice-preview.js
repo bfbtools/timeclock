@@ -26,7 +26,7 @@ export default guard(async (req) => {
     ok: true, dryRun: !send, weekStart, weekEnd: data.weekEnd,
     counts: { sub: gen.subInvoices.length, qb: gen.qbInvoices.length, gc: gen.gcInvoices.length },
     subInvoices: gen.subInvoices.map((s) => ({ company: s.sub.CompanyName, total: s.invoice.total, autoSend: s.autoSend, independent: s.independent })),
-    qbInvoices: gen.qbInvoices.map((q) => ({ company: q.qb.company, hours: q.qb.hours, total: q.qb.total })),
+    qbInvoices: gen.qbInvoices.map((q) => ({ company: q.qb.company, hours: q.qb.totalHours, total: q.qb.total })),
     gcInvoices: gen.gcInvoices.map((g) => ({ gc: g.gc.gcName, lunchHours: g.gc.lunchHours, total: g.gc.total })),
     results,
   });

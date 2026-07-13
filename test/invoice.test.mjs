@@ -95,13 +95,21 @@ test('GC invoice: lunch never makes a short day negative', () => {
   assert.equal(gc.total, 0);
 });
 
-test('QB invoice: flat $50/hr Carpentry, no lunch deduction', () => {
+test('QB invoice: Carpentry at $50, General Labor for override workers, no lunch', () => {
   const sub = { SubID: 'SANIG', CompanyName: 'San Ignacio', DefaultPayRate: '50' };
-  const workers = [{ WorkerID: 'W1', First: 'Fredy', SubID: 'SANIG' }];
-  const punches = [P('2026-07-06 07:00:00', 'IN', 'PRJ_A', 'W1'), P('2026-07-06 15:00:00', 'OUT', 'PRJ_A', 'W1')]; // 8h
+  const workers = [
+    { WorkerID: 'W1', First: 'Fredy', SubID: 'SANIG' },                           // default -> Carpentry $50
+    { WorkerID: 'W3', First: 'Carlito', SubID: 'SANIG', PayRateOverride: '35' },  // override -> General Labor $35
+  ];
+  const punches = [
+    P('2026-07-06 07:00:00', 'IN', 'PRJ_A', 'W1'), P('2026-07-06 15:00:00', 'OUT', 'PRJ_A', 'W1'), // Fredy 8h
+    P('2026-07-06 07:00:00', 'IN', 'PRJ_A', 'W3'), P('2026-07-06 11:00:00', 'OUT', 'PRJ_A', 'W3'), // Carlito 4h
+  ];
   const qb = buildQBInvoice({ sub, workers, punches, weekStart: '2026-07-06' });
-  assert.equal(qb.item, 'Carpentry');
-  assert.equal(qb.rate, 50);
-  assert.equal(qb.hours, 8);       // full 8h, no lunch
-  assert.equal(qb.total, 400);
+  const carp = qb.lines.find((l) => l.item === 'Carpentry');
+  const gen = qb.lines.find((l) => l.item === 'General Labor');
+  assert.equal(carp.qty, 8); assert.equal(carp.rate, 50); assert.equal(carp.amount, 400); // full 8h, no lunch
+  assert.equal(gen.qty, 4); assert.equal(gen.rate, 35); assert.equal(gen.amount, 140);
+  assert.equal(qb.totalHours, 12);
+  assert.equal(qb.total, 540);
 });
