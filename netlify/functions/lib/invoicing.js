@@ -105,16 +105,15 @@ export function generateWeekInvoices({ subs, workers, projects, punches, materia
 // drafts only. QB and GC are always drafts to accounting@ for review.
 //
 // TEST MODE — set TEST_INVOICE_EMAIL to a single address to route EVERY send to
-// that address instead of accounting@/the subs, prefix the subject with
-// [TEST], and skip the InvoiceLog write (so the real scheduled run still treats
-// the week as un-invoiced). Lets you send a real end-to-end test email to
-// yourself without emailing subs or poisoning idempotency. MUST be unset in
-// normal production — while it is set, real invoices will NOT reach subs and
-// the week is never logged, so the Monday run re-sends to the test address
-// every week. See .env.example.
-export async function deliverWeek({ gen, send }) {
+// that address (with a [TEST] subject, and no InvoiceLog write) instead of
+// accounting@/the subs. This ONLY takes effect when `allowTestRoute` is true —
+// i.e. the manual /api/invoice-preview endpoint. The scheduled Monday run
+// (invoice-run.js) does NOT pass it, so it ALWAYS emails the real subs and logs
+// normally. That means TEST_INVOICE_EMAIL can safely be left set for repeat
+// testing without affecting production. See .env.example.
+export async function deliverWeek({ gen, send, allowTestRoute = false }) {
   const acct = process.env.ACCOUNTING_EMAIL || 'accounting@backforty.builders';
-  const testTo = (process.env.TEST_INVOICE_EMAIL || '').trim();
+  const testTo = allowTestRoute ? (process.env.TEST_INVOICE_EMAIL || '').trim() : '';
   const subj = (s) => (testTo ? `[TEST] ${s}` : s);
   const invoiceDate = etParts().date; // the run date (ISO), shown on each invoice
   let nextNo = await nextInvoiceNumber(); // sequential invoice #, continues across weeks

@@ -20,7 +20,9 @@ export default guard(async (req) => {
 
   const data = await fetchWeekData(weekStart);
   const gen = generateWeekInvoices({ ...data, weekStart });
-  const results = await deliverWeek({ gen, send }); // send=false → dry run (no email, no log)
+  // allowTestRoute: this manual endpoint honors TEST_INVOICE_EMAIL (routes to the
+  // test address). The scheduled run does not, so it always emails real subs.
+  const results = await deliverWeek({ gen, send, allowTestRoute: true }); // send=false → dry run
 
   return json(200, {
     ok: true, dryRun: !send, weekStart, weekEnd: data.weekEnd,
