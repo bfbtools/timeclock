@@ -519,6 +519,11 @@ function setMainButton() {
   const btn = $('mainBtn'), label = $('mainBtnLabel'), icon = $('mainBtnIcon');
   updateWeekTotal();
   updateAuthLinks();
+  // Hide the jobsite "X" (clear/re-scan) while clocked in: re-scanning mid-shift
+  // is what "Switch to Different Jobsite" is for, and clearing here would strand
+  // them at scan-home while still on the clock. The X still shows before you
+  // clock in, so a mistaken scan can be corrected then.
+  $('jobsiteCard').classList.toggle('clocked-in', !!(state.worker && state.worker.status === 'in'));
   $('switchBtn').classList.add('hidden'); // shown only in the clocked-in branch below
   if (state.noSite) {
     btn.disabled = true; btn.classList.remove('out');

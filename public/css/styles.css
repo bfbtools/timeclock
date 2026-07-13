@@ -65,6 +65,7 @@ body{font-family:'Libre Franklin',sans-serif;background:#34332c;color:var(--ink)
 .jobsite-clear .material-symbols-rounded{font-size:26px;}
 .jobsite-clear:active{color:var(--ink-soft);}
 .jobsite:not(.scannable) .jobsite-clear{display:flex;}
+.jobsite.clocked-in .jobsite-clear{display:none;} /* hide re-scan X while on the clock */
 
 /* ---- QR scanner ---- */
 .scan-stage{position:relative;width:100%;aspect-ratio:1/1;max-height:60vh;margin:8px 0 4px;border-radius:16px;overflow:hidden;background:#000;}
