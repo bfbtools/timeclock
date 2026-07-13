@@ -15,7 +15,7 @@ User groups:
 ## Guardrails — read first
 
 - **Do not modify any existing skills, files, or unrelated projects.** Standalone build.
-- **The human does all account/cloud/DNS/deploy actions.** You write code and commit to GitHub; you do NOT authenticate, deploy, create cloud resources, or change DNS on Adrienne's behalf. Surface the steps; she runs them.
+- **Deploys:** Claude may deploy (push to `main`, which Netlify auto-builds) but **asks before deploying** and **batches** multiple changes into a single deploy to conserve tokens, rather than shipping each small change. The human still handles account/cloud/DNS auth and secrets; Claude does not create cloud resources, change DNS, or handle secrets.
 - **No secrets in the repo.** Service-account keys and API keys live in Netlify environment variables only.
 - **No geolocation, no selfie/photo-of-person capture.** The QR is posted at the jobsite; the scan is the presence proof. Do not add either.
 - **Onboarding is backend.** People are added in the Sheet. The only in-app account creation is the "My name isn't here" fallback (see Flow).
