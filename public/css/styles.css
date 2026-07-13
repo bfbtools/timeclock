@@ -226,6 +226,15 @@ select.empty{color:var(--placeholder);font-weight:500;}
 .confirm .csite{display:inline-flex;align-items:center;gap:6px;margin-top:16px;background:rgba(255,255,255,0.12);
   border-radius:20px;padding:6px 14px;font-size:13px;font-weight:700;letter-spacing:.5px;color:#fff;}
 .confirm.show .csite{animation:rise .4s ease .34s both;}
+/* Recovery banner: a light-gold notice pinned to the top of the confirmation,
+   pushing the check/stamp down below it. Only shown after a missed-clock-out
+   recovery (see showConfirm) — .confirm gets .banner then. */
+.confirm.banner{justify-content:flex-start;}
+.confirm .cnote{display:flex;align-items:center;gap:11px;width:100%;box-sizing:border-box;margin-bottom:30px;
+  background:#f7ead0;border:1.5px solid var(--brass);border-radius:12px;padding:13px 15px;
+  color:var(--forge);font-size:13px;line-height:1.4;text-align:left;}
+.confirm .cnote .cnote-flag{color:var(--brass);font-size:22px;flex:0 0 auto;}
+.confirm.show.banner .cnote{animation:rise .4s ease .1s both;}
 .confirm .reset{margin-top:34px;background:transparent;border:1.5px solid rgba(255,255,255,0.4);color:#fff;
   font-family:'Libre Franklin';font-weight:600;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;padding:11px 20px;border-radius:8px;cursor:pointer;}
 @keyframes pop{0%{transform:scale(0);}100%{transform:scale(1);}}

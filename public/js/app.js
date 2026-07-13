@@ -18,6 +18,7 @@ const I = {
     pinSub4: '4-digit PIN', pinSubNew: 'Pick a 4-digit PIN', pinSubAgain: 'Re-enter to confirm',
     pinWrong: 'Wrong PIN — try again', pinNoMatch: "PINs didn't match — start over",
     statusIn: "YOU'RE<br>CLOCKED IN", statusOut: "YOU'RE<br>CLOCKED OUT",
+    rec_done_note: "We closed your unfinished shift from {day}. You've now started a NEW shift at {site} — remember to clock out when you leave.",
     rec_title: 'Finish your last shift',
     rec_note: 'You clocked in but never clocked out. When did you leave?',
     rec_date: 'Day you worked', rec_time: 'Clock-out time', rec_save: 'Save clock-out',
@@ -83,6 +84,7 @@ const I = {
     pinSub4: 'PIN de 4 dígitos', pinSubNew: 'Elige un PIN de 4 dígitos', pinSubAgain: 'Repite para confirmar',
     pinWrong: 'PIN incorrecto — inténtalo de nuevo', pinNoMatch: 'Los PIN no coinciden — empieza de nuevo',
     statusIn: 'ENTRADA<br>REGISTRADA', statusOut: 'SALIDA<br>REGISTRADA',
+    rec_done_note: 'Cerramos tu turno sin salida del {day}. Ahora empezaste un NUEVO turno en {site} — recuerda marcar salida al irte.',
     rec_title: 'Termina tu último turno',
     rec_note: 'Marcaste entrada pero no salida. ¿A qué hora te fuiste?',
     rec_date: 'Día que trabajaste', rec_time: 'Hora de salida', rec_save: 'Guardar salida',
@@ -609,14 +611,17 @@ function afterAuth(pin) {
   if (action === 'OUT' && (state.worker.type && state.worker.type !== 'employee')) { openClockChoice('clockout'); return; }
   doPunch(action);
 }
+// The live backend sends openInfo = { date } (an ISO day) with no label; only
+// the offline demo supplies a prebuilt `label`. Format the day from the date so
+// both the recovery field and the post-recovery confirmation always show it.
+function recDayLabel(info) {
+  info = info || {};
+  return info.label
+    || (info.date ? new Date(info.date + 'T00:00:00').toLocaleDateString(I[lang].loc, { weekday: 'long', month: 'long', day: 'numeric' }) : '');
+}
 function openRecovery() {
   showLoading(false);
-  // The live backend sends openInfo = { date } (an ISO day) with no label; only
-  // the offline demo supplies a prebuilt `label`. Format the day here from the
-  // date so the readonly "Day you worked" field always shows the shift's date.
-  const info = state.worker.openInfo || {};
-  $('recDay').value = info.label
-    || (info.date ? new Date(info.date + 'T00:00:00').toLocaleDateString(I[lang].loc, { weekday: 'long', month: 'long', day: 'numeric' }) : '');
+  $('recDay').value = recDayLabel(state.worker.openInfo);
   writeTime('recTime', '');
   show('recovery');
 }
@@ -635,7 +640,11 @@ async function submitRecovery() {
   const at = `${state.worker.openInfo.date}T${time}:00`;
   const res = await API.punch({ workerId: state.worker.id, pin: state.authedPin, action: 'OUT', at, missed: true });
   if (!res.ok) { alert(res.error || t('err')); return; }
-  // Prior shift closed → they are now clocked out; start today's shift.
+  // Prior shift closed → they are now clocked out; auto-start today's shift, and
+  // flag the confirmation so it explains we closed the old shift + started a new
+  // one (otherwise landing on "You're Clocked In" after tapping Clock Out is a
+  // surprise).
+  state.recoveryClosedDay = recDayLabel(state.worker.openInfo);
   state.worker.openPriorDate = false; state.worker.status = 'out';
   doPunch('IN');
 }
@@ -668,6 +677,21 @@ function showConfirm(action, atIso, siteOverride) {
   const cSite = $('cSite');
   if (siteName) { cSite.innerHTML = `<span class="material-symbols-rounded" style="font-size:16px">distance</span> ${siteName}`; cSite.style.display = ''; }
   else { cSite.style.display = 'none'; }
+  // After a missed-clock-out recovery, this IN follows an auto-close of the old
+  // shift — spell that out in a gold banner at the top (so "You're Clocked In"
+  // isn't a surprise and the new jobsite is clear). .banner top-aligns the view.
+  const cNote = $('cNote');
+  if (isIn && state.recoveryClosedDay) {
+    $('cNoteText').textContent = t('rec_done_note')
+      .replace('{day}', state.recoveryClosedDay)
+      .replace('{site}', siteName || t('job'));
+    cNote.style.display = '';
+    c.classList.add('banner');
+  } else {
+    cNote.style.display = 'none';
+    c.classList.remove('banner');
+  }
+  state.recoveryClosedDay = null;
   c.classList.add('show');
 }
 function closeConfirm() {
