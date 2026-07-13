@@ -102,8 +102,19 @@ export function generateWeekInvoices({ subs, workers, projects, punches, materia
 // admin preview). Independent + AutoInvoice sub invoices are emailed to
 // accounting@ + the sub; company subs that are AutoInvoice=OFF are recorded as
 // drafts only. QB and GC are always drafts to accounting@ for review.
+//
+// TEST MODE — set TEST_INVOICE_EMAIL to a single address to route EVERY send to
+// that address instead of accounting@/the subs, prefix the subject with
+// [TEST], and skip the InvoiceLog write (so the real scheduled run still treats
+// the week as un-invoiced). Lets you send a real end-to-end test email to
+// yourself without emailing subs or poisoning idempotency. MUST be unset in
+// normal production — while it is set, real invoices will NOT reach subs and
+// the week is never logged, so the Monday run re-sends to the test address
+// every week. See .env.example.
 export async function deliverWeek({ gen, send }) {
   const acct = process.env.ACCOUNTING_EMAIL || 'accounting@backforty.builders';
+  const testTo = (process.env.TEST_INVOICE_EMAIL || '').trim();
+  const subj = (s) => (testTo ? `[TEST] ${s}` : s);
   const results = [];
   let seq = 0;
 
@@ -115,35 +126,39 @@ export async function deliverWeek({ gen, send }) {
     });
 
   for (const { sub, invoice, autoSend } of gen.subInvoices) {
-    const to = [acct, sub.Email].filter(Boolean);
+    const to = testTo ? [testTo] : [acct, sub.Email].filter(Boolean);
     let status = autoSend ? 'sent' : 'draft';
     let sentTo = autoSend ? to.join(', ') : '';
     if (send && autoSend) {
-      try { const { subject, html } = renderSubInvoiceEmail(invoice); await sendEmail({ to, subject, html }); }
+      try { const { subject, html } = renderSubInvoiceEmail(invoice); await sendEmail({ to, subject: subj(subject), html }); }
       catch (e) { status = 'error'; sentTo = e.message; }
     }
-    if (send) await logRow('sub', invoice.subId, invoice.total, status, sentTo, invoice.weekStart, invoice.weekEnd);
-    results.push({ type: 'sub', company: sub.CompanyName, total: invoice.total, status, autoSend });
+    // Skip the log in test mode: a row here would make the scheduled run treat
+    // the week as already invoiced and skip the real send.
+    if (send && !testTo) await logRow('sub', invoice.subId, invoice.total, status, sentTo, invoice.weekStart, invoice.weekEnd);
+    results.push({ type: 'sub', company: sub.CompanyName, total: invoice.total, status, autoSend, ...(testTo ? { testTo } : {}) });
   }
 
   for (const { sub, qb } of gen.qbInvoices) {
-    let status = 'draft', sentTo = acct;
+    const to = testTo || acct;
+    let status = 'draft', sentTo = to;
     if (send) {
-      try { const { subject, html } = renderQBInvoiceEmail(qb); await sendEmail({ to: acct, subject, html }); }
+      try { const { subject, html } = renderQBInvoiceEmail(qb); await sendEmail({ to, subject: subj(subject), html }); }
       catch (e) { status = 'error'; sentTo = e.message; }
-      await logRow('QB', qb.subId, qb.total, status, sentTo, qb.weekStart, qb.weekEnd);
+      if (!testTo) await logRow('QB', qb.subId, qb.total, status, sentTo, qb.weekStart, qb.weekEnd);
     }
-    results.push({ type: 'QB', company: qb.company, total: qb.total, status });
+    results.push({ type: 'QB', company: qb.company, total: qb.total, status, ...(testTo ? { testTo } : {}) });
   }
 
   for (const { gc } of gen.gcInvoices) {
-    let status = 'draft', sentTo = acct;
+    const to = testTo || acct;
+    let status = 'draft', sentTo = to;
     if (send) {
-      try { const { subject, html } = renderGCInvoiceEmail(gc); await sendEmail({ to: acct, subject, html }); }
+      try { const { subject, html } = renderGCInvoiceEmail(gc); await sendEmail({ to, subject: subj(subject), html }); }
       catch (e) { status = 'error'; sentTo = e.message; }
-      await logRow('GC', gc.gcName, gc.total, status, sentTo, gc.weekStart, gc.weekEnd);
+      if (!testTo) await logRow('GC', gc.gcName, gc.total, status, sentTo, gc.weekStart, gc.weekEnd);
     }
-    results.push({ type: 'GC', gc: gc.gcName, total: gc.total, status });
+    results.push({ type: 'GC', gc: gc.gcName, total: gc.total, status, ...(testTo ? { testTo } : {}) });
   }
 
   return results;
