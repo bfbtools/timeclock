@@ -136,7 +136,7 @@ export async function deliverWeek({ gen, send }) {
     // Skip the log in test mode: a row here would make the scheduled run treat
     // the week as already invoiced and skip the real send.
     if (send && !testTo) await logRow('sub', invoice.subId, invoice.total, status, sentTo, invoice.weekStart, invoice.weekEnd);
-    results.push({ type: 'sub', company: sub.CompanyName, total: invoice.total, status, autoSend, ...(testTo ? { testTo } : {}) });
+    results.push({ type: 'sub', company: sub.CompanyName, total: invoice.total, status, autoSend, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
   }
 
   for (const { sub, qb } of gen.qbInvoices) {
@@ -147,7 +147,7 @@ export async function deliverWeek({ gen, send }) {
       catch (e) { status = 'error'; sentTo = e.message; }
       if (!testTo) await logRow('QB', qb.subId, qb.total, status, sentTo, qb.weekStart, qb.weekEnd);
     }
-    results.push({ type: 'QB', company: qb.company, total: qb.total, status, ...(testTo ? { testTo } : {}) });
+    results.push({ type: 'QB', company: qb.company, total: qb.total, status, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
   }
 
   for (const { gc } of gen.gcInvoices) {
@@ -158,7 +158,7 @@ export async function deliverWeek({ gen, send }) {
       catch (e) { status = 'error'; sentTo = e.message; }
       if (!testTo) await logRow('GC', gc.gcName, gc.total, status, sentTo, gc.weekStart, gc.weekEnd);
     }
-    results.push({ type: 'GC', gc: gc.gcName, total: gc.total, status, ...(testTo ? { testTo } : {}) });
+    results.push({ type: 'GC', gc: gc.gcName, total: gc.total, status, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
   }
 
   return results;
