@@ -1,8 +1,8 @@
 // Email via Google Workspace (Gmail API).
 // Sends using the EXISTING service account (GOOGLE_SERVICE_ACCOUNT) with
 // domain-wide delegation to impersonate the ACCOUNTING_EMAIL mailbox
-// (accounting@backforty.builders). No extra secret and no new dependency —
-// reuses the same googleapis client the Sheet uses.
+// (accounting@backforty.builders). No extra secret and no new dependency for
+// sending — reuses the same googleapis client the Sheet uses.
 //
 // One-time setup in Google (admin):
 //   1. Enable the Gmail API in the service account's Cloud project.
@@ -36,29 +36,53 @@ function encHeader(s) {
     ? `=?UTF-8?B?${Buffer.from(s, 'utf8').toString('base64')}?=`
     : s;
 }
+// base64, wrapped at 76 chars per RFC 2045 (for message parts).
+const b64 = (buf) => Buffer.from(buf).toString('base64').replace(/(.{76})/g, '$1\r\n');
+// base64url of the whole raw message (for gmail.users.messages.send).
+const b64url = (s) => Buffer.from(s, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-// Build a base64url-encoded RFC 822 message for gmail.users.messages.send.
-function buildRaw({ from, to, cc, subject, html }) {
+// Build a base64url-encoded RFC 822 message. With attachments it's
+// multipart/mixed (html part + one part per attachment); otherwise a plain
+// text/html message.
+function buildRaw({ from, to, cc, subject, html, attachments }) {
   const list = (v) => (Array.isArray(v) ? v : [v]).filter(Boolean).join(', ');
-  const headers = [
+  const top = [
     `From: Back Forty Builders <${from}>`,
     `To: ${list(to)}`,
     ...(cc ? [`Cc: ${list(cc)}`] : []),
     `Subject: ${encHeader(subject)}`,
     'MIME-Version: 1.0',
-    'Content-Type: text/html; charset="UTF-8"',
-    'Content-Transfer-Encoding: base64',
-    '',
-    Buffer.from(html, 'utf8').toString('base64'),
   ];
-  return Buffer.from(headers.join('\r\n'), 'utf8')
-    .toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  if (attachments && attachments.length) {
+    const boundary = `----bfb_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    top.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
+    const parts = [[
+      'Content-Type: text/html; charset="UTF-8"',
+      'Content-Transfer-Encoding: base64', '',
+      b64(Buffer.from(html, 'utf8')),
+    ].join('\r\n')];
+    for (const a of attachments) {
+      parts.push([
+        `Content-Type: ${a.contentType || 'application/octet-stream'}; name="${a.filename}"`,
+        `Content-Disposition: attachment; filename="${a.filename}"`,
+        'Content-Transfer-Encoding: base64', '',
+        b64(a.content),
+      ].join('\r\n'));
+    }
+    const body = parts.map((p) => `--${boundary}\r\n${p}`).join('\r\n') + `\r\n--${boundary}--`;
+    return b64url(top.join('\r\n') + '\r\n\r\n' + body);
+  }
+
+  top.push('Content-Type: text/html; charset="UTF-8"', 'Content-Transfer-Encoding: base64');
+  return b64url(top.join('\r\n') + '\r\n\r\n' + b64(Buffer.from(html, 'utf8')));
 }
 
-export async function sendEmail({ to, cc, subject, html }) {
+// attachments: [{ filename, content (Buffer), contentType }]
+export async function sendEmail({ to, cc, subject, html, attachments }) {
   const from = sender();
   const gmail = gmailClient();
-  const raw = buildRaw({ from, to, cc, subject, html });
+  const raw = buildRaw({ from, to, cc, subject, html, attachments });
   const res = await gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
   return res.data;
 }

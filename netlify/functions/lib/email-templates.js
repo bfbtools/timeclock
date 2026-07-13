@@ -44,36 +44,18 @@ function flagsBlock(flags) {
 }
 
 // ---- sub invoice ---------------------------------------------------------
+// The invoice itself is a PDF attachment (built in lib/pdf.js); the email body
+// is the note + the Mon–Sun onsite roster.
 export function renderSubInvoiceEmail(inv, meta = {}) {
   const invNo = meta.invoiceNo || '';
-  const headerSub = `Invoice #${invNo} • ${meta.invoiceDate ? fmtLong(meta.invoiceDate) : ''} • Due on receipt`;
-  const title = `${(inv.projectNames || []).join(', ')} – Back Forty Builders`;
-
-  const head = tr([th('Project'), th('Dates'), th('Qty', 'right'), th('Rate', 'right'), th('Amount', 'right')]);
-  const rows = inv.projects.map((p) => tr([
-    td(`<b>${p.name}</b>`), td(dateRange(p.perDay)),
-    td(String(p.hours), 'right'), td(p.rate ? money(p.rate) : '—', 'right'), td(money(p.amount), 'right'),
-  ])).join('');
-  const mats = inv.materials.map((m) => tr([
-    td(`Materials${m.note ? ' — ' + m.note : ''}`), td(''), td('', 'right'), td('', 'right'), td(money(m.amount), 'right'),
-  ])).join('');
-
-  const card = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;background:${C.paper};border-radius:12px;overflow:hidden;border:1px solid ${C.line}">
-    <div style="background:${C.forge};padding:20px 24px">
-      <div style="color:#fff;font-size:20px;font-weight:bold;letter-spacing:.3px">${inv.company}</div>
-      <div style="color:${C.kraft};font-size:12px;font-weight:bold;letter-spacing:1px;margin-top:3px">${headerSub}</div>
-    </div>
-    <div style="height:4px;background:linear-gradient(90deg,${C.ember} 0 40%,${C.kraft} 40% 70%,${C.pine} 70% 100%)"></div>
-    <div style="padding:24px 16px 16px">
-      <div style="font-size:18px;font-weight:bold;color:${C.ink}">${title}</div>
-      <div style="font-size:13px;color:${C.soft};margin-top:4px">Week ${fmt(inv.weekStart)} – ${fmt(inv.weekEnd)}</div>
-      <div style="margin-top:14px">${tableEl(head + rows + mats + totalRow('TOTAL', money(inv.total)))}</div>
-    </div>
+  const note = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto 16px;color:${C.ink}">
+    <div style="font-size:16px;font-weight:bold">${inv.company}</div>
+    <div style="font-size:13px;color:${C.soft};margin-top:2px">Invoice #${invNo}${meta.invoiceDate ? ' • ' + fmtLong(meta.invoiceDate) : ''} • Due on receipt</div>
+    <div style="font-size:14px;margin-top:10px">The invoice for <b>${(inv.projectNames || []).join(', ')}</b> is attached as a PDF. Total <b>${money(inv.total)}</b>.</div>
   </div>`;
-
   return {
     subject: `Invoice #${invNo} — ${inv.company} — week of ${fmt(inv.weekStart)}`,
-    html: rosterBody(inv) + card + flagsBlock(inv.flags),
+    html: note + rosterBody(inv) + flagsBlock(inv.flags),
   };
 }
 

@@ -12,6 +12,7 @@ import { mondayOf, weekRange, dayKey } from './rollup.js';
 import { buildSubInvoice, buildQBInvoice, buildGCInvoice } from './invoice-lib.js';
 import { etStamp, etParts } from './model.js';
 import { sendEmail } from './email.js';
+import { subInvoicePdf } from './pdf.js';
 import { renderSubInvoiceEmail, renderQBInvoiceEmail, renderGCInvoiceEmail } from './email-templates.js';
 
 const isY = (v) => String(v).trim().toUpperCase().startsWith('Y');
@@ -134,8 +135,11 @@ export async function deliverWeek({ gen, send }) {
     let status = autoSend ? 'sent' : 'draft';
     let sentTo = autoSend ? to.join(', ') : '';
     if (send && autoSend) {
-      try { const { subject, html } = renderSubInvoiceEmail(invoice, { invoiceNo, invoiceDate }); await sendEmail({ to, subject: subj(subject), html }); }
-      catch (e) { status = 'error'; sentTo = e.message; }
+      try {
+        const { subject, html } = renderSubInvoiceEmail(invoice, { invoiceNo, invoiceDate });
+        const pdf = await subInvoicePdf(invoice, { invoiceNo, invoiceDate });
+        await sendEmail({ to, subject: subj(subject), html, attachments: [{ filename: `Invoice-${invoiceNo}.pdf`, content: pdf, contentType: 'application/pdf' }] });
+      } catch (e) { status = 'error'; sentTo = e.message; }
     }
     // Skip the log in test mode: a row here would make the scheduled run treat
     // the week as already invoiced and skip the real send.
