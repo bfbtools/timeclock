@@ -700,8 +700,11 @@ function openClockChoice(mode) {
   show('choice');
 }
 async function submitRecovery() {
+  if (state.recovering) return; // block a double-tap closing the shift twice
   const time = readTime('recTime');
   if (!time) { alert(t('apMissing')); return; }
+  state.recovering = true;
+  try {
   const at = `${state.worker.openInfo.date}T${time}:00`;
   const res = await API.punch({ workerId: state.worker.id, pin: state.authedPin, action: 'OUT', at, missed: true });
   if (!res.ok) { alert(res.error || t('err')); return; }
@@ -711,7 +714,8 @@ async function submitRecovery() {
   // surprise).
   state.recoveryClosedDay = recDayLabel(state.worker.openInfo);
   state.worker.openPriorDate = false; state.worker.status = 'out';
-  doPunch('IN');
+  await doPunch('IN');
+  } finally { state.recovering = false; }
 }
 async function doPunch(action) {
   if (state.punching) return; // a double-tap must not write the same punch twice
@@ -1176,6 +1180,11 @@ function fileToBase64(file) {
   });
 }
 async function saveMaterials() {
+  if (state.savingMat) return; // block a double-tap saving materials twice
+  state.savingMat = true;
+  try { await doSaveMaterials(); } finally { state.savingMat = false; }
+}
+async function doSaveMaterials() {
   const amount = parseFloat($('matAmount').value);
   const file = $('matReceipt').files[0];
   const perDay = state.matMode === 'day' || state.matMode === 'team';
