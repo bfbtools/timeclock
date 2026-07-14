@@ -156,14 +156,15 @@
 
       <!-- ============ VIEW: WRONG JOBSITE CODE (clock-out scan at wrong site) ============ -->
       <section class="view" id="view-wrongsite">
-        <div class="form-title" data-i18n="wrongTitle">Wrong jobsite code</div>
+        <div class="form-title" data-i18n="wrongTitle">You're clocked in somewhere else</div>
         <div class="form-note" id="wrongMsg">—</div>
         <div class="warn-banner">
           <span class="material-symbols-rounded warn-flag">flag</span>
-          <span id="wrongTip" data-i18n="wrongTip">Clock out — or switch jobsites — before you leave a site.</span>
+          <span id="wrongTip" data-i18n="wrongTip">Tap Switch when you change jobsites so your time follows you.</span>
         </div>
         <div class="spacer"></div>
-        <button class="clock-btn" id="wrongScanAgain"><span class="material-symbols-rounded">qr_code_scanner</span><span data-i18n="scanAgain">Scan Again</span></button>
+        <button class="clock-btn" id="wrongSwitch"><span class="material-symbols-rounded">swap_horiz</span><span id="wrongSwitchLabel">Switch jobsite</span></button>
+        <button class="linkbtn" id="wrongScanAgain" data-i18n="scanAgain">I scanned the wrong code</button>
       </section>
 
       <!-- ============ VIEW: "MY NAME ISN'T HERE" FALLBACK ============ -->

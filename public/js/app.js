@@ -22,10 +22,11 @@ const I = {
     switchJobShort: 'Switch Jobsite',
     sw_scanTo: "Scan the QR at the jobsite you're switching to.",
     sw_already: "You're already clocked in at this jobsite.",
-    wrongTitle: 'Wrong jobsite code',
-    wrongMsg: "You're clocked in at {open}, but this code is for {scanned}. Scan {open}'s QR code to clock out.",
-    wrongTip: 'Clock out — or switch jobsites — before you leave a site.',
-    scanAgain: 'Scan Again',
+    wrongTitle: "You're clocked in somewhere else",
+    wrongMsg: "You're still clocked in at {open} — this jobsite is {scanned}.",
+    wrongTip: 'Tap Switch when you change jobsites so your time follows you.',
+    wrongSwitchTo: 'Switch to {scanned}',
+    scanAgain: 'I scanned the wrong code',
     rec_title: 'Finish your last shift',
     rec_note: 'You clocked in but never clocked out. When did you leave?',
     rec_date: 'Day you worked', rec_time: 'Clock-out time', rec_save: 'Save clock-out',
@@ -95,10 +96,11 @@ const I = {
     switchJobShort: 'Cambiar de obra',
     sw_scanTo: 'Escanea el código QR de la obra a la que vas a cambiar.',
     sw_already: 'Ya tienes tu entrada en esta obra.',
-    wrongTitle: 'Código de obra equivocado',
-    wrongMsg: 'Tienes tu entrada en {open}, pero este código es de {scanned}. Escanea el código QR de {open} para marcar salida.',
-    wrongTip: 'Marca salida — o cambia de obra — antes de dejar una obra.',
-    scanAgain: 'Escanear de nuevo',
+    wrongTitle: 'Tienes entrada en otra obra',
+    wrongMsg: 'Sigues con entrada en {open} — esta obra es {scanned}.',
+    wrongTip: 'Toca Cambiar cuando cambies de obra para que tu tiempo te siga.',
+    wrongSwitchTo: 'Cambiar a {scanned}',
+    scanAgain: 'Escaneé el código equivocado',
     rec_title: 'Termina tu último turno',
     rec_note: 'Marcaste entrada pero no salida. ¿A qué hora te fuiste?',
     rec_date: 'Día que trabajaste', rec_time: 'Hora de salida', rec_save: 'Guardar salida',
@@ -655,6 +657,7 @@ function showWrongSite() {
   const open = (state.worker.open && state.worker.open.siteName) || '—';
   const scanned = (state.data?.project?.siteName) || '—';
   $('wrongMsg').textContent = t('wrongMsg').replace(/\{open\}/g, open).replace('{scanned}', scanned);
+  $('wrongSwitchLabel').textContent = t('wrongSwitchTo').replace('{scanned}', scanned);
   show('wrongsite');
 }
 function afterAuth(pin) {
@@ -1398,6 +1401,13 @@ function bind() {
     else { openPin('switch'); }
   });
   $('wrongScanAgain').addEventListener('click', () => { clearJobsite(); openScanner(); });
+  // "Switch to <this jobsite>": they scanned the site they moved to while still
+  // clocked in elsewhere — switch straight to it (out of the open site, in here).
+  $('wrongSwitch').addEventListener('click', () => {
+    state.switchTo = state.site;   // the scanned site is the destination
+    state.switchDirect = true;     // skip the picker; doSwitch clocks out of openSiteQR()
+    openPin('switch');
+  });
   $('fallbackBtn').addEventListener('click', () => {
     if ($('fallbackBtn').dataset.mode === 'logout') logout();
     else openFallback();
