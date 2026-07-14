@@ -148,3 +148,31 @@ test('summarizeWorkerWeek: Sunday inside the week is counted like any weekday', 
   assert.equal(s.weekHours, 8); // Sunday now inside the Mon–Sun week and counted
   assert.ok(!s.flags.some((f) => f.reason.includes('Sunday')));
 });
+
+// --- Regression: single-digit-hour timestamps (the Sheet returns datetime cells
+// in the column's display format, e.g. "2026-07-14 6:00:00"). These must parse
+// AND sort chronologically, or a worker's day mis-pairs (shows still clocked in).
+test('pairDay: single-digit hour parses (not NaN)', () => {
+  const d = pairDay([
+    { Timestamp: '2026-07-14 8:00:00', Action: 'IN', Project: 'P05' },
+    { Timestamp: '2026-07-14 9:30:00', Action: 'OUT', Project: 'P05' },
+  ]);
+  assert.equal(d.hours, 1.5);           // 8:00 → 9:30, not NaN
+  assert.equal(d.unpaired.length, 0);
+});
+
+test('pairDay: one bad timestamp never NaNs the whole day', () => {
+  const d = pairDay([
+    { Timestamp: '2026-07-14 08:00:00', Action: 'IN', Project: 'P05' },
+    { Timestamp: '2026-07-14 10:00:00', Action: 'OUT', Project: 'P05' },
+    { Timestamp: 'garbage', Action: 'IN', Project: 'P05' },
+    { Timestamp: 'also-bad', Action: 'OUT', Project: 'P05' },
+  ]);
+  assert.equal(Number.isFinite(d.hours), true); // bad pair flagged, not poisoning
+  assert.equal(d.hours, 2);
+});
+
+test('minutesBetween: chronological regardless of hour padding', () => {
+  // 6am → 4pm = 600 min. With the old string sort, "16:00" < "6:00" would flip this.
+  assert.equal(minutesBetween('2026-07-14 6:00:00', '2026-07-14 16:00:00'), 600);
+});

@@ -45,6 +45,21 @@ function spreadsheetId() {
  * row object is keyed by header, plus `_rowNumber` (1-based sheet row) so
  * callers can update the exact row later.
  */
+// The Sheet stores timestamps as datetime VALUES (we write with USER_ENTERED) and
+// returns them in the column's display format, which drops the leading zero on the
+// hour (e.g. "2026-07-14 6:00:00"). That single-digit hour breaks BOTH `new Date()`
+// parsing (Invalid Date) AND string sorts ("...16:00" sorts before "...6:00"), which
+// mis-pairs a worker's punches — showing them still clocked in and zeroing totals.
+// Re-pad to a canonical "YYYY-MM-DD HH:MM:SS" so every downstream sort/compare/parse
+// is correct. Anything that doesn't match a clean timestamp is passed through as-is.
+function normalizeStamp(v) {
+  const s = String(v == null ? '' : v).trim();
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
+  if (!m) return s;
+  const p = (n) => String(n).padStart(2, '0');
+  return `${m[1]}-${p(m[2])}-${p(m[3])} ${p(m[4])}:${p(m[5])}:${p(m[6] || 0)}`;
+}
+
 export async function readTab(tabName) {
   const res = await sheets().spreadsheets.values.get({
     spreadsheetId: spreadsheetId(),
@@ -58,7 +73,9 @@ export async function readTab(tabName) {
   const rows = values.slice(1).map((row, i) => {
     const obj = { _rowNumber: i + 2 }; // +2: skip header, 1-based
     headers.forEach((h, c) => {
-      obj[h] = row[c] !== undefined ? row[c] : '';
+      let v = row[c] !== undefined ? row[c] : '';
+      if (h === 'Timestamp') v = normalizeStamp(v); // re-pad single-digit hours
+      obj[h] = v;
     });
     return obj;
   });

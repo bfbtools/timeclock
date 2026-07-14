@@ -714,11 +714,15 @@ async function submitRecovery() {
   doPunch('IN');
 }
 async function doPunch(action) {
+  if (state.punching) return; // a double-tap must not write the same punch twice
+  state.punching = true;
   showLoading(true);
-  const res = await API.punch({ workerId: state.worker.id, pin: state.authedPin, action });
-  if (!res.ok) { showFail(res.error); return; }
-  state.worker.status = action === 'IN' ? 'in' : 'out';
-  showConfirm(action, res.at);
+  try {
+    const res = await API.punch({ workerId: state.worker.id, pin: state.authedPin, action });
+    if (!res.ok) { showFail(res.error); return; }
+    state.worker.status = action === 'IN' ? 'in' : 'out';
+    showConfirm(action, res.at);
+  } finally { state.punching = false; }
 }
 function showFail(msg) { showLoading(false); alert(msg || t('err')); resetToClock(); }
 
@@ -1108,6 +1112,13 @@ async function removePunch() {
   show('timelog');
 }
 async function submitAddPunch() {
+  if (state.savingEdit) return; // block a double-tap adding/editing the punch twice
+  state.savingEdit = true;
+  try {
+    await doSubmitAddPunch();
+  } finally { state.savingEdit = false; }
+}
+async function doSubmitAddPunch() {
   const date = state.apDate;
   if (!date) return;
   // Guardrail: block a 4th distinct day in this session (nudge to use the QR).
@@ -1220,7 +1231,12 @@ function confirmSwitch() {
   doSwitch();
 }
 async function doSwitch() {
+  if (state.switching) return; // a double-tap must not write two switch pairs
+  state.switching = true;
   showLoading(true);
+  try { await doSwitchInner(); } finally { showLoading(false); state.switching = false; }
+}
+async function doSwitchInner() {
   // Always clock OUT of the site the worker is actually clocked in at (their open
   // shift), not whatever QR is loaded — otherwise the OUT is tagged to the wrong
   // project. Falls back to the scanned site when the open site can't be resolved.
@@ -1229,7 +1245,6 @@ async function doSwitch() {
     workerId: state.worker.id, pin: state.authedPin, fromSite, toSite: state.switchTo,
   });
   state.switchDirect = false; state.switchTo = null;
-  showLoading(false);
   if (!res.ok) { showFail(res.error); return; }
   state.worker.status = 'in'; // now clocked in at the destination
   showConfirm('IN', res.at, res.site);

@@ -30,7 +30,13 @@ export function dayKey(stamp) {
 }
 function toDate(stamp) {
   // "YYYY-MM-DD HH:mm:ss" or "YYYY-MM-DDTHH:mm:ss" → Date (local wall clock).
-  return new Date(String(stamp).replace(' ', 'T'));
+  // Build from parts so a SINGLE-digit hour parses: the Sheet stores timestamps
+  // as datetime values (USER_ENTERED) and reads them back in the column's display
+  // format — e.g. "2026-07-14 6:00:00" — and `new Date("...T6:00:00")` is Invalid
+  // Date (ISO needs a 2-digit hour). Matching by parts avoids that NaN.
+  const m = String(stamp).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+  return new Date(String(stamp).replace(' ', 'T')); // fallback for unexpected formats
 }
 export function minutesBetween(inStamp, outStamp) {
   return (toDate(outStamp).getTime() - toDate(inStamp).getTime()) / 60000;
@@ -88,7 +94,10 @@ export function pairDay(dayPunches) {
         unpaired.push({ punch: p, reason: 'clock-out with no clock-in' });
       } else {
         const minutes = minutesBetween(open.Timestamp, p.Timestamp);
-        if (minutes <= 0) {
+        // `!(minutes > 0)` (not `minutes <= 0`) so an unparseable timestamp
+        // (minutes = NaN) is flagged unpaired instead of poisoning the whole
+        // week's total (NaN <= 0 is false, so the old guard let NaN through).
+        if (!(minutes > 0)) {
           unpaired.push({ punch: open, reason: 'clock-out not after clock-in' });
           unpaired.push({ punch: p, reason: 'clock-out not after clock-in' });
         } else {
