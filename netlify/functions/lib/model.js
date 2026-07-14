@@ -100,7 +100,7 @@ export async function getActiveSites() {
   const { rows } = await readTab(TABS.PROJECTS);
   return rows
     .filter((p) => isActive(p) && String(p.QRParam || '').trim())
-    .map((p) => ({ qrParam: String(p.QRParam).trim(), siteName: p.SiteName }));
+    .map((p) => ({ id: String(p.ProjectID || '').trim(), qrParam: String(p.QRParam).trim(), siteName: p.SiteName }));
 }
 
 // All punches for a set of worker ids whose day falls within [start, end].
@@ -126,11 +126,11 @@ export async function getMaterialsForSub(subId, start, end) {
 // Given all punch rows for one worker, decide current clock state.
 // Uses the latest punch by timestamp: an IN with no later OUT = still in.
 export function computeStatus(workerPunches) {
-  if (!workerPunches.length) return { status: 'out', openPriorDate: false, openInfo: null };
+  if (!workerPunches.length) return { status: 'out', openPriorDate: false, openInfo: null, open: null };
   const sorted = [...workerPunches].sort((a, b) => String(a.Timestamp).localeCompare(String(b.Timestamp)));
   const last = sorted[sorted.length - 1];
   if (String(last.Action).toUpperCase() !== 'IN') {
-    return { status: 'out', openPriorDate: false, openInfo: null };
+    return { status: 'out', openPriorDate: false, openInfo: null, open: null };
   }
   const openDate = stampDate(last.Timestamp);
   const priorDate = openDate < etToday();
@@ -138,6 +138,9 @@ export function computeStatus(workerPunches) {
     status: 'in',
     openPriorDate: priorDate,
     openInfo: priorDate ? { date: openDate } : null,
+    // Where this open shift was clocked in — a live clock-out must scan the same
+    // jobsite (see the front end's same-site guard). ProjectID + display name.
+    open: { projectId: String(last.Project || '').trim(), siteName: last.Site || '' },
   };
 }
 
@@ -183,6 +186,7 @@ export async function buildRoster() {
       status: st.status,
       openPriorDate: st.openPriorDate,
       openInfo: st.openInfo,
+      open: st.open, // { projectId, siteName } of the current open shift (or null)
       todayHours: currentWeekHours(punchList, today, today), // single-day range
       weekHours: currentWeekHours(punchList, weekStart, weekEnd),
     };

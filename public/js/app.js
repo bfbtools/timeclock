@@ -19,6 +19,13 @@ const I = {
     pinWrong: 'Wrong PIN — try again', pinNoMatch: "PINs didn't match — start over",
     statusIn: "YOU'RE<br>CLOCKED IN", statusOut: "YOU'RE<br>CLOCKED OUT",
     rec_done_note: "We closed your unfinished shift from {day}. You've now started a NEW shift at {site} — remember to clock out when you leave.",
+    switchJobShort: 'Switch Jobsite',
+    sw_scanTo: "Scan the QR at the jobsite you're switching to.",
+    sw_already: "You're already clocked in at this jobsite.",
+    wrongTitle: 'Wrong jobsite code',
+    wrongMsg: "You're clocked in at {open}, but this code is for {scanned}. Scan {open}'s QR code to clock out.",
+    wrongTip: 'Clock out — or switch jobsites — before you leave a site.',
+    scanAgain: 'Scan Again',
     rec_title: 'Finish your last shift',
     rec_note: 'You clocked in but never clocked out. When did you leave?',
     rec_date: 'Day you worked', rec_time: 'Clock-out time', rec_save: 'Save clock-out',
@@ -85,6 +92,13 @@ const I = {
     pinWrong: 'PIN incorrecto — inténtalo de nuevo', pinNoMatch: 'Los PIN no coinciden — empieza de nuevo',
     statusIn: 'ENTRADA<br>REGISTRADA', statusOut: 'SALIDA<br>REGISTRADA',
     rec_done_note: 'Cerramos tu turno sin salida del {day}. Ahora empezaste un NUEVO turno en {site} — recuerda marcar salida al irte.',
+    switchJobShort: 'Cambiar de obra',
+    sw_scanTo: 'Escanea el código QR de la obra a la que vas a cambiar.',
+    sw_already: 'Ya tienes tu entrada en esta obra.',
+    wrongTitle: 'Código de obra equivocado',
+    wrongMsg: 'Tienes tu entrada en {open}, pero este código es de {scanned}. Escanea el código QR de {open} para marcar salida.',
+    wrongTip: 'Marca salida — o cambia de obra — antes de dejar una obra.',
+    scanAgain: 'Escanear de nuevo',
     rec_title: 'Termina tu último turno',
     rec_note: 'Marcaste entrada pero no salida. ¿A qué hora te fuiste?',
     rec_date: 'Día que trabajaste', rec_time: 'Hora de salida', rec_save: 'Guardar salida',
@@ -152,6 +166,7 @@ const views = {
   timelog: $('view-timelog'), addpunch: $('view-addpunch'), invoice: $('view-invoice'),
   materials: $('view-materials'), rate: $('view-rate'), scan: $('view-scan'),
   switch: $('view-switch'), team: $('view-team'), choice: $('view-choice'), lang: $('view-lang'),
+  wrongsite: $('view-wrongsite'),
 };
 function show(name) {
   Object.values(views).forEach((v) => v.classList.remove('active'));
@@ -485,14 +500,22 @@ function buildDropdown() {
 }
 // "Today Total: Xh" (left) and "Week Total: Xh" (right) under the flip clock,
 // for the selected/remembered worker (from the roster). Hidden with no worker.
+// Decimal hours → human "Xh Ym" (e.g. 0.79 → "47m", 8.5 → "8h 30m", 8 → "8h").
+// Workers read the clock/Time Log totals; "0.79h" gets misread as minutes.
+function fmtHrs(hours) {
+  const totalMin = Math.round((Number(hours) || 0) * 60);
+  if (!totalMin) return '0h';
+  const h = Math.floor(totalMin / 60), m = totalMin % 60;
+  return (h ? `${h}h` : '') + (h && m ? ' ' : '') + (m ? `${m}m` : '');
+}
 function updateWeekTotal() {
   const wk = $('weekTotal'), td = $('todayTotal');
   const w = state.worker;
   if (w && typeof w.weekHours === 'number') {
-    wk.textContent = `${t('weekTotal')}: ${w.weekHours}h`; wk.classList.remove('hidden');
+    wk.textContent = `${t('weekTotal')}: ${fmtHrs(w.weekHours)}`; wk.classList.remove('hidden');
   } else { wk.classList.add('hidden'); wk.textContent = ''; }
   if (w && typeof w.todayHours === 'number') {
-    td.textContent = `${t('todayTotal')}: ${w.todayHours}h`; td.classList.remove('hidden');
+    td.textContent = `${t('todayTotal')}: ${fmtHrs(w.todayHours)}`; td.classList.remove('hidden');
   } else { td.classList.add('hidden'); td.textContent = ''; }
 }
 // The secondary link says "View Invoice Draft" for owners/independents and
@@ -529,6 +552,10 @@ function setMainButton() {
     btn.disabled = true; btn.classList.remove('out');
     label.textContent = t('noSiteShort'); icon.textContent = 'qr_code_scanner';
     $('hint').textContent = ''; // no "tap to start/end your workday" line at the scan-home
+    // At the scan-home, a clocked-in worker can still switch jobsites: the button
+    // opens the scanner so they scan the site they're moving to (see switchBtn).
+    const canSwitchScan = state.worker && state.worker.status === 'in' && !state.worker.openPriorDate;
+    $('switchBtn').classList.toggle('hidden', !canSwitchScan);
     return;
   }
   if (!state.worker) {
@@ -605,11 +632,44 @@ function pinFail(msg) {
 }
 
 /* ------------------------------------------------------------------ actions */
+// True when the worker is clocked in at a different jobsite than the one now
+// scanned — a live clock-out here would tag the OUT to the wrong project. The
+// roster (loaded fresh on every scan) carries `open.projectId` for the open shift.
+function outSiteMismatch() {
+  const o = state.worker && state.worker.open;
+  return !!(o && o.projectId && state.data && state.data.project
+    && String(state.data.project.id) !== String(o.projectId));
+}
+// The QR param of the jobsite the worker is currently clocked in at (resolved
+// from the open shift's projectId via the sites list). Used as the switch
+// origin so a switch always clocks OUT of the open site, not the scanned one.
+function openSiteQR() {
+  const o = state.worker && state.worker.open;
+  if (!o || !o.projectId) return null;
+  const site = (state.data?.sites || []).find((s) => String(s.id) === String(o.projectId));
+  return site ? site.qrParam : null;
+}
+// Show the "wrong jobsite code" page: they scanned a site they're NOT clocked
+// in at while trying to clock out. Names both sites; the tip is a warning banner.
+function showWrongSite() {
+  const open = (state.worker.open && state.worker.open.siteName) || '—';
+  const scanned = (state.data?.project?.siteName) || '—';
+  $('wrongMsg').textContent = t('wrongMsg').replace(/\{open\}/g, open).replace('{scanned}', scanned);
+  show('wrongsite');
+}
 function afterAuth(pin) {
   state.authedPin = pin;
   localStorage.setItem('bfb_worker', state.worker.id);
   if (state.intent === 'secondary') { openSecondary(); return; }
-  if (state.intent === 'switch') { openSwitch(); return; }
+  if (state.intent === 'switch') {
+    // Direct switch (scanned the destination): skip the picker. Owners/independents
+    // still get the "with or without materials" step, same as the picker path.
+    if (state.switchDirect) {
+      if (state.worker.type && state.worker.type !== 'employee') { openClockChoice('switch'); }
+      else { doSwitch(); }
+    } else { openSwitch(); }
+    return;
+  }
   if (state.worker.openPriorDate) { openRecovery(); return; }
   const action = state.worker.status === 'in' ? 'OUT' : 'IN';
   // Owners/independents get a "clock out with or without materials" choice.
@@ -804,7 +864,7 @@ function renderTeam(members) {
     const el = document.createElement('div'); el.className = 'team-row'; el.dataset.i = i;
     const you = m.self ? (lang === 'en' ? ' · You' : ' · Tú') : '';
     el.innerHTML = `<div><div class="tname">${m.name}${you}</div>`
-      + `<div class="tsub">${t('weekTotal')}: ${m.weekHours}h</div></div>`
+      + `<div class="tsub">${t('weekTotal')}: ${fmtHrs(m.weekHours)}</div></div>`
       + '<span class="material-symbols-rounded go">chevron_right</span>';
     wrap.appendChild(el);
   });
@@ -868,11 +928,11 @@ function renderTimeLog(d) {
       ? `<button class="addhours addmat" data-date="${day.date}"><span class="material-symbols-rounded">receipt_long</span>${t('addMaterials')}</button>`
       : '';
     el.innerHTML = `<div class="drow"><span class="dname">${fmtDayLong(day.date)}</span>`
-      + `<span class="dhrs ${day.hours ? '' : 'zero'}">${day.hours ? day.hours + 'h' : '—'}</span></div>`
+      + `<span class="dhrs ${day.hours ? '' : 'zero'}">${day.hours ? fmtHrs(day.hours) : '—'}</span></div>`
       + hoursBody + matBtn;
     wrap.appendChild(el);
   });
-  $('tlTotal').textContent = (d.currentWeekHours ?? d.weekHours) + 'h';
+  $('tlTotal').textContent = fmtHrs(d.currentWeekHours ?? d.weekHours);
   const hasPunches = d.days.some((x) => x.punches.length);
   $('tlEditHint').textContent = hasPunches ? t('tapEdit') : '';
   renderFlags($('tlFlags'), d.flags);
@@ -1161,13 +1221,28 @@ function confirmSwitch() {
 }
 async function doSwitch() {
   showLoading(true);
+  // Always clock OUT of the site the worker is actually clocked in at (their open
+  // shift), not whatever QR is loaded — otherwise the OUT is tagged to the wrong
+  // project. Falls back to the scanned site when the open site can't be resolved.
+  const fromSite = openSiteQR() || state.site;
   const res = await API.switchJob({
-    workerId: state.worker.id, pin: state.authedPin, fromSite: state.site, toSite: state.switchTo,
+    workerId: state.worker.id, pin: state.authedPin, fromSite, toSite: state.switchTo,
   });
+  state.switchDirect = false; state.switchTo = null;
   showLoading(false);
   if (!res.ok) { showFail(res.error); return; }
   state.worker.status = 'in'; // now clocked in at the destination
   showConfirm('IN', res.at, res.site);
+}
+// Entry from the scan-home "Switch Jobsite" scanner: the scanned QR is the
+// destination. Switch straight to it (clock out of the open site + in here).
+function startSwitchTo(qrParam) {
+  const o = state.worker && state.worker.open;
+  const dest = (state.data?.sites || []).find((s) => String(s.qrParam) === String(qrParam));
+  if (o && dest && String(dest.id) === String(o.projectId)) { alert(t('sw_already')); show('clock'); return; }
+  state.switchTo = qrParam;
+  state.switchDirect = true; // skip the picker in afterAuth
+  openPin('switch');
 }
 
 /* ---------------------------------------------------- change pay rate (owner) */
@@ -1197,7 +1272,7 @@ function loadJsQR() {
   });
 }
 async function openScanner() {
-  $('scanMsg').textContent = t('scan_hint');
+  $('scanMsg').textContent = state.scanForSwitch ? t('sw_scanTo') : t('scan_hint');
   show('scan');
   try {
     await loadJsQR();
@@ -1235,7 +1310,14 @@ function handleScan(text) {
   // The QR encodes a URL like https://timeclock.backforty.builders/?site=french1
   let site = null;
   try { site = new URL(text, location.origin).searchParams.get('site'); } catch { /* not a URL */ }
-  if (site) { stopScanner(); location.href = '/?site=' + encodeURIComponent(site); return; }
+  if (site) {
+    stopScanner();
+    // Switch mode (from the scan-home "Switch Jobsite" button): the scanned site
+    // is the destination — switch straight to it in-page, no reload.
+    if (state.scanForSwitch) { state.scanForSwitch = false; startSwitchTo(site); return; }
+    location.href = '/?site=' + encodeURIComponent(site);
+    return;
+  }
   // Not one of ours — say so, then resume scanning after a beat.
   $('scanMsg').textContent = t('scan_bad');
   setTimeout(() => { if (scanStream) { $('scanMsg').textContent = t('scan_hint'); scanLoop(); } }, 1500);
@@ -1244,6 +1326,7 @@ function handleScan(text) {
 /* ------------------------------------------------------------------ reset / nav */
 function resetToClock() {
   state.pinBuf = ''; state.pinFirst = ''; state.authedPin = null;
+  state.switchDirect = false; state.scanForSwitch = false; // clear any pending switch
   show('clock');
   renderRemembered();
   const sel = $('who'); sel.selectedIndex = 0; sel.classList.add('empty');
@@ -1270,10 +1353,27 @@ function bind() {
     localStorage.removeItem('bfb_worker'); state.worker = null;
     renderRemembered(); setMainButton();
   });
-  $('mainBtn').addEventListener('click', () => { if (state.worker) openPin('clock'); });
-  $('switchBtn').addEventListener('click', () => {
-    if (state.worker && state.worker.status === 'in') openPin('switch');
+  $('mainBtn').addEventListener('click', () => {
+    if (!state.worker) return;
+    // A live clock-out must be at the SAME jobsite you clocked in — otherwise the
+    // OUT gets tagged to the wrong project. A mismatched QR shows the "wrong
+    // jobsite code" page instead. (Prior-day recovery is exempt — it closes an
+    // old shift from wherever you are.)
+    if (state.worker.status === 'in' && !state.worker.openPriorDate && outSiteMismatch()) {
+      showWrongSite();
+      return;
+    }
+    openPin('clock');
   });
+  // "Switch Jobsite": at the scan-home (no site scanned yet) it opens the scanner
+  // so you scan the jobsite you're switching TO; on a loaded site page it opens
+  // the destination picker. Either way doSwitch() clocks you out of your OPEN site.
+  $('switchBtn').addEventListener('click', () => {
+    if (!state.worker || state.worker.status !== 'in' || state.worker.openPriorDate) return;
+    if (state.noSite) { state.scanForSwitch = true; openScanner(); }
+    else { openPin('switch'); }
+  });
+  $('wrongScanAgain').addEventListener('click', () => { clearJobsite(); openScanner(); });
   $('fallbackBtn').addEventListener('click', () => {
     if ($('fallbackBtn').dataset.mode === 'logout') logout();
     else openFallback();
@@ -1285,7 +1385,7 @@ function bind() {
   // No-jobsite card doubles as a "scan the QR" button.
   $('jobsiteCard').addEventListener('click', () => { if (state.noSite) openScanner(); });
   $('jobsiteClear').addEventListener('click', (e) => { e.stopPropagation(); clearJobsite(); });
-  $('scanCancel').addEventListener('click', () => { stopScanner(); show('clock'); });
+  $('scanCancel').addEventListener('click', () => { state.scanForSwitch = false; stopScanner(); show('clock'); });
 
   // secondary tab nav
   $('tlBack').addEventListener('click', tlBackNav);

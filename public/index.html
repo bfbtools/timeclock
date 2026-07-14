@@ -8,6 +8,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Libre+Franklin:wght@400;500;600;700&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500,0,0&display=block">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
@@ -149,6 +152,18 @@
         <div class="spacer"></div>
         <button class="clock-btn out" id="recSubmit"><span class="material-symbols-rounded">history</span><span data-i18n="rec_save">Save clock-out</span></button>
         <button class="linkbtn" id="recCancel" data-i18n="cancel">Cancel</button>
+      </section>
+
+      <!-- ============ VIEW: WRONG JOBSITE CODE (clock-out scan at wrong site) ============ -->
+      <section class="view" id="view-wrongsite">
+        <div class="form-title" data-i18n="wrongTitle">Wrong jobsite code</div>
+        <div class="form-note" id="wrongMsg">—</div>
+        <div class="warn-banner">
+          <span class="material-symbols-rounded warn-flag">flag</span>
+          <span id="wrongTip" data-i18n="wrongTip">Clock out — or switch jobsites — before you leave a site.</span>
+        </div>
+        <div class="spacer"></div>
+        <button class="clock-btn" id="wrongScanAgain"><span class="material-symbols-rounded">qr_code_scanner</span><span data-i18n="scanAgain">Scan Again</span></button>
       </section>
 
       <!-- ============ VIEW: "MY NAME ISN'T HERE" FALLBACK ============ -->

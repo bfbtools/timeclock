@@ -236,6 +236,10 @@ select.empty{color:var(--placeholder);font-weight:500;}
   color:var(--forge);font-size:13px;line-height:1.4;text-align:left;}
 .confirm .cnote .cnote-flag{color:var(--brass);font-size:22px;flex:0 0 auto;}
 .confirm.show.banner .cnote{animation:rise .4s ease .1s both;}
+/* Amber warning banner (e.g. the "wrong jobsite code" reminder) on light views. */
+.warn-banner{display:flex;align-items:center;gap:11px;margin-top:18px;background:#fbeecb;border:1.5px solid var(--brass);
+  border-radius:12px;padding:13px 15px;color:var(--ink);font-size:13px;line-height:1.4;}
+.warn-banner .warn-flag{color:var(--brass);font-size:22px;flex:0 0 auto;}
 .confirm .reset{margin-top:34px;background:transparent;border:1.5px solid rgba(255,255,255,0.4);color:#fff;
   font-family:'Libre Franklin';font-weight:600;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;padding:11px 20px;border-radius:8px;cursor:pointer;}
 @keyframes pop{0%{transform:scale(0);}100%{transform:scale(1);}}
