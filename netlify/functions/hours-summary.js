@@ -39,10 +39,14 @@ export function summarize({ workers, projects, punches, subs, from, to, today })
   const projTotals = {};
   const perWorker = [];
   const issues = [];
+  const shifts = []; // one row per worker shift: paired in→out, plus broken (unpaired) rows
   let totalHours = 0;
+
+  const pName = (pid) => projName[String(pid || '').trim()] || '';
 
   for (const [wid, plist] of byWorker) {
     const days = workerDays(plist); // { 'YYYY-MM-DD': { hours, projectHours, unpaired, ... } }
+    const wm = wMeta[wid] || {};
     let wHours = 0; const wByProject = {};
     for (const date of Object.keys(days)) {
       if (!inRange(date)) continue;
@@ -52,12 +56,38 @@ export function summarize({ workers, projects, punches, subs, from, to, today })
         wByProject[pid] = round2((wByProject[pid] || 0) + h);
         projTotals[pid] = round2((projTotals[pid] || 0) + h);
       }
+      // paired shifts (in → out)
+      d.intervals.forEach((iv) => shifts.push({
+        date, workerId: wid, name: wm.name || wid, sub: wm.sub || '',
+        projectId: String(iv.project || '').trim(), project: pName(iv.project),
+        inAt: (iv.in && iv.in.Timestamp) || '', outAt: (iv.out && iv.out.Timestamp) || '',
+        punchInId: (iv.in && iv.in.PunchID) || '', punchOutId: (iv.out && iv.out.PunchID) || '',
+        hours: round2(iv.minutes / 60), issue: null, today: date === today,
+      }));
+      // broken shifts (an unpaired punch) — become a red row with the Fix button
+      d.unpaired.forEach((u) => {
+        const p = u.punch || {};
+        const isOut = String(p.Action || '').trim().toUpperCase() === 'OUT';
+        shifts.push({
+          date, workerId: wid, name: wm.name || wid, sub: wm.sub || '',
+          projectId: String(p.Project || '').trim(), project: pName(p.Project),
+          inAt: isOut ? '' : (p.Timestamp || ''), outAt: isOut ? (p.Timestamp || '') : '',
+          punchInId: isOut ? '' : (p.PunchID || ''), punchOutId: isOut ? (p.PunchID || '') : '',
+          hours: 0, issue: u.reason, punchId: p.PunchID || '', punchAction: p.Action || '',
+          today: date === today,
+        });
+      });
       d.unpaired.forEach((u) => issues.push({
         date, workerId: wid,
         name: (wMeta[wid] || {}).name || wid,
         sub: (wMeta[wid] || {}).sub || '',
         reason: u.reason, // 'missing clock-out' | 'clock-out with no clock-in' | 'clock-out not after clock-in'
         project: projName[String((u.punch && u.punch.Project) || '').trim()] || '',
+        // identifiers so an admin can fix this exact punch from Slab:
+        punchId: (u.punch && u.punch.PunchID) || '',
+        at: (u.punch && u.punch.Timestamp) || '',
+        punchAction: (u.punch && u.punch.Action) || '',
+        projectId: String((u.punch && u.punch.Project) || '').trim(),
         today: date === today, // today's 'missing clock-out' = still on the clock, NOT an error
       }));
     }
@@ -73,9 +103,15 @@ export function summarize({ workers, projects, punches, subs, from, to, today })
     .sort((a, b) => b.hours - a.hours);
   perWorker.sort((a, b) => b.hours - a.hours);
   issues.sort((a, b) => (Number(a.today) - Number(b.today)) || String(a.date).localeCompare(b.date));
+  shifts.sort((a, b) => String(a.date).localeCompare(b.date)
+    || String(a.sub).localeCompare(b.sub)
+    || String(a.name).localeCompare(b.name)
+    || String(a.inAt || a.outAt).localeCompare(b.inAt || b.outAt));
+  // subs that actually have punches this range, for the table tabs
+  const subsList = [...new Set(shifts.map((s) => s.sub).filter(Boolean))].sort();
 
   return {
-    ok: true, from, to, today, totalHours, perProject, perWorker, issues,
+    ok: true, from, to, today, totalHours, perProject, perWorker, issues, shifts, subs: subsList,
     counts: {
       workers: perWorker.length,
       projects: perProject.length,

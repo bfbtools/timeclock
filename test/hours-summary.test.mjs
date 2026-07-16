@@ -20,12 +20,12 @@ const projects = [
 //        an open shift today (07-15) = still on the clock, NOT a real issue.
 // Ana:   clean 5h on P03 (07-14).
 const punches = [
-  { WorkerID: 'SI06', Project: 'P01', Action: 'IN',  Timestamp: '2026-07-13 07:00:00' },
-  { WorkerID: 'SI06', Project: 'P01', Action: 'OUT', Timestamp: '2026-07-13 15:00:00' },
-  { WorkerID: 'SI06', Project: 'P01', Action: 'OUT', Timestamp: '2026-07-13 16:00:00' }, // orphan → issue
-  { WorkerID: 'SI06', Project: 'P01', Action: 'IN',  Timestamp: '2026-07-15 08:00:00' }, // open today
-  { WorkerID: 'LO02', Project: 'P03', Action: 'IN',  Timestamp: '2026-07-14 07:00:00' },
-  { WorkerID: 'LO02', Project: 'P03', Action: 'OUT', Timestamp: '2026-07-14 12:00:00' },
+  { PunchID: 'p1', WorkerID: 'SI06', Project: 'P01', Action: 'IN',  Timestamp: '2026-07-13 07:00:00' },
+  { PunchID: 'p2', WorkerID: 'SI06', Project: 'P01', Action: 'OUT', Timestamp: '2026-07-13 15:00:00' },
+  { PunchID: 'p3', WorkerID: 'SI06', Project: 'P01', Action: 'OUT', Timestamp: '2026-07-13 16:00:00' }, // orphan → issue
+  { PunchID: 'p4', WorkerID: 'SI06', Project: 'P01', Action: 'IN',  Timestamp: '2026-07-15 08:00:00' }, // open today
+  { PunchID: 'p5', WorkerID: 'LO02', Project: 'P03', Action: 'IN',  Timestamp: '2026-07-14 07:00:00' },
+  { PunchID: 'p6', WorkerID: 'LO02', Project: 'P03', Action: 'OUT', Timestamp: '2026-07-14 12:00:00' },
 ];
 
 test('summarize: hours per project + total (full week)', () => {
@@ -63,6 +63,29 @@ test('summarize: issues — orphan is real, today open shift is not', () => {
   assert.equal(openToday.reason, 'missing clock-out');
   // counts.issues excludes today's still-on-the-clock shift
   assert.equal(r.counts.issues, 1);
+  // each issue carries the punch identifiers so admin can fix that exact row
+  assert.equal(real.punchId, 'p3');            // the orphan clock-out
+  assert.equal(real.at, '2026-07-13 16:00:00');
+  assert.equal(real.punchAction, 'OUT');
+  assert.equal(real.projectId, 'P01');
+  assert.equal(openToday.punchId, 'p4');       // the open clock-in
+});
+
+test('summarize: shifts — paired rows + broken rows, grouped subs', () => {
+  const r = summarize({ workers, projects, punches, subs, from: '2026-07-13', to: '2026-07-15', today: '2026-07-15' });
+  assert.equal(r.shifts.length, 4);            // Willy: 1 paired + orphan + open today; Ana: 1 paired
+  const paired = r.shifts.filter((s) => !s.issue);
+  assert.equal(paired.length, 2);
+  const willyShift = paired.find((s) => s.name === 'Willy');
+  assert.equal(willyShift.inAt, '2026-07-13 07:00:00');
+  assert.equal(willyShift.outAt, '2026-07-13 15:00:00');
+  assert.equal(willyShift.hours, 8);
+  assert.equal(willyShift.project, 'French 1');
+  const orphan = r.shifts.find((s) => s.issue === 'clock-out with no clock-in');
+  assert.equal(orphan.outAt, '2026-07-13 16:00:00');
+  assert.equal(orphan.inAt, '');
+  assert.equal(orphan.punchId, 'p3');
+  assert.deepEqual(r.subs, ['Lopez Exterior', 'San Ignacio LLC']);
 });
 
 test('summarize: date range filters out-of-range days', () => {
