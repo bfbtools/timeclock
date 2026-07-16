@@ -5,7 +5,7 @@
 // prior-day clock-out recovery; those rows are marked Source=manual, Edited=Y.
 
 import { json, body, guard } from './lib/http.js';
-import { authEdit, getProjectByQR, appendPunch, etStamp, editWindowStart } from './lib/model.js';
+import { authEdit, getProjectByQR, appendPunch, etStamp, editWindowStart, displayName } from './lib/model.js';
 
 export default guard(async (req) => {
   if (req.method !== 'POST') return json(405, { ok: false, error: 'Method not allowed' });
@@ -42,6 +42,9 @@ export default guard(async (req) => {
     stamp = etStamp();
   }
 
-  await appendPunch({ project, worker, sub: worker.SubID, action, stamp, missed: !!missed });
+  // A missed-punch add is a correction — attribute it to the person doing it (self, or an owner for crew).
+  await appendPunch({ project, worker, sub: worker.SubID, action, stamp, missed: !!missed,
+    editedBy: missed ? displayName(auth.acting || auth.target) : undefined,
+    editedAt: missed ? etStamp() : undefined });
   return json(200, { ok: true, at: stamp, action });
 });

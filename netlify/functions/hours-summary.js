@@ -43,6 +43,12 @@ export function summarize({ workers, projects, punches, subs, from, to, today })
   let totalHours = 0;
 
   const pName = (pid) => projName[String(pid || '').trim()] || '';
+  // per-punch adjustment attribution (who/when), forward-only (blank on unedited/old rows)
+  const pe = (p) => ({
+    edited: String((p && p.Edited) || '').trim().toUpperCase() === 'Y',
+    editedBy: (p && p.EditedBy) || '',
+    editedAt: (p && p.EditedAt) || '',
+  });
 
   for (const [wid, plist] of byWorker) {
     const days = workerDays(plist); // { 'YYYY-MM-DD': { hours, projectHours, unpaired, ... } }
@@ -57,39 +63,51 @@ export function summarize({ workers, projects, punches, subs, from, to, today })
         projTotals[pid] = round2((projTotals[pid] || 0) + h);
       }
       // paired shifts (in → out)
-      d.intervals.forEach((iv) => shifts.push({
-        date, workerId: wid, name: wm.name || wid, sub: wm.sub || '',
-        projectId: String(iv.project || '').trim(), project: pName(iv.project),
-        inAt: (iv.in && iv.in.Timestamp) || '', outAt: (iv.out && iv.out.Timestamp) || '',
-        punchInId: (iv.in && iv.in.PunchID) || '', punchOutId: (iv.out && iv.out.PunchID) || '',
-        hours: round2(iv.minutes / 60), issue: null, today: date === today,
-      }));
+      d.intervals.forEach((iv) => {
+        const ein = pe(iv.in), eout = pe(iv.out);
+        shifts.push({
+          date, workerId: wid, name: wm.name || wid, sub: wm.sub || '',
+          projectId: String(iv.project || '').trim(), project: pName(iv.project),
+          inAt: (iv.in && iv.in.Timestamp) || '', outAt: (iv.out && iv.out.Timestamp) || '',
+          punchInId: (iv.in && iv.in.PunchID) || '', punchOutId: (iv.out && iv.out.PunchID) || '',
+          inEdited: ein.edited, inEditedBy: ein.editedBy, inEditedAt: ein.editedAt,
+          outEdited: eout.edited, outEditedBy: eout.editedBy, outEditedAt: eout.editedAt,
+          hours: round2(iv.minutes / 60), issue: null, today: date === today,
+        });
+      });
       // broken shifts (an unpaired punch) — become a red row with the Fix button
       d.unpaired.forEach((u) => {
         const p = u.punch || {};
         const isOut = String(p.Action || '').trim().toUpperCase() === 'OUT';
+        const e = pe(p);
         shifts.push({
           date, workerId: wid, name: wm.name || wid, sub: wm.sub || '',
           projectId: String(p.Project || '').trim(), project: pName(p.Project),
           inAt: isOut ? '' : (p.Timestamp || ''), outAt: isOut ? (p.Timestamp || '') : '',
           punchInId: isOut ? '' : (p.PunchID || ''), punchOutId: isOut ? (p.PunchID || '') : '',
+          inEdited: isOut ? false : e.edited, inEditedBy: isOut ? '' : e.editedBy, inEditedAt: isOut ? '' : e.editedAt,
+          outEdited: isOut ? e.edited : false, outEditedBy: isOut ? e.editedBy : '', outEditedAt: isOut ? e.editedAt : '',
           hours: 0, issue: u.reason, punchId: p.PunchID || '', punchAction: p.Action || '',
           today: date === today,
         });
       });
-      d.unpaired.forEach((u) => issues.push({
-        date, workerId: wid,
-        name: (wMeta[wid] || {}).name || wid,
-        sub: (wMeta[wid] || {}).sub || '',
-        reason: u.reason, // 'missing clock-out' | 'clock-out with no clock-in' | 'clock-out not after clock-in'
-        project: projName[String((u.punch && u.punch.Project) || '').trim()] || '',
-        // identifiers so an admin can fix this exact punch from Slab:
-        punchId: (u.punch && u.punch.PunchID) || '',
-        at: (u.punch && u.punch.Timestamp) || '',
-        punchAction: (u.punch && u.punch.Action) || '',
-        projectId: String((u.punch && u.punch.Project) || '').trim(),
-        today: date === today, // today's 'missing clock-out' = still on the clock, NOT an error
-      }));
+      d.unpaired.forEach((u) => {
+        const e = pe(u.punch);
+        issues.push({
+          date, workerId: wid,
+          name: (wMeta[wid] || {}).name || wid,
+          sub: (wMeta[wid] || {}).sub || '',
+          reason: u.reason, // 'missing clock-out' | 'clock-out with no clock-in' | 'clock-out not after clock-in'
+          project: projName[String((u.punch && u.punch.Project) || '').trim()] || '',
+          // identifiers so an admin can fix this exact punch from Slab:
+          punchId: (u.punch && u.punch.PunchID) || '',
+          at: (u.punch && u.punch.Timestamp) || '',
+          punchAction: (u.punch && u.punch.Action) || '',
+          projectId: String((u.punch && u.punch.Project) || '').trim(),
+          edited: e.edited, editedBy: e.editedBy, editedAt: e.editedAt,
+          today: date === today, // today's 'missing clock-out' = still on the clock, NOT an error
+        });
+      });
     }
     if (wHours > 0 || Object.keys(wByProject).length) {
       wHours = round2(wHours);

@@ -5,7 +5,7 @@
 // punches are marked Source=manual, Edited=Y so corrections are visible.
 
 import { json, body, guard } from './lib/http.js';
-import { authEdit, editWindowStart } from './lib/model.js';
+import { authEdit, editWindowStart, etStamp, displayName } from './lib/model.js';
 import { readTab, updateRow } from './lib/sheets.js';
 import { TABS } from './lib/config.js';
 import { dayKey } from './lib/rollup.js';
@@ -35,7 +35,7 @@ export default guard(async (req) => {
     return json(403, { ok: false, error: 'That day is outside the 2-week edit window' });
   }
 
-  const patch = { Timestamp: stamp, Source: 'manual', Edited: 'Y' };
+  const patch = { Timestamp: stamp, Source: 'manual', Edited: 'Y', EditedAt: etStamp(), EditedBy: displayName(auth.acting) };
   if (action === 'IN' || action === 'OUT') patch.Action = action;
   await updateRow(TABS.PUNCHES, punch._rowNumber, patch);
 

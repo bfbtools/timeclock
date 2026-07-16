@@ -204,7 +204,7 @@ export async function setWorkerPin(worker, pin) {
 // `source` overrides the default IN/OUT source label when given (e.g. 'switch'
 // for a "Switch to Different Jobsite" pair, whose destination IN is not a
 // scanned presence punch). Otherwise: manual (missed-punch recovery) or scan.
-export async function appendPunch({ project, worker, sub, action, stamp, missed, source }) {
+export async function appendPunch({ project, worker, sub, action, stamp, missed, source, editedBy, editedAt }) {
   const row = {
     PunchID: `P-${Date.now()}-${Math.floor(performance.now() % 1000)}`,
     Timestamp: stamp,
@@ -216,6 +216,9 @@ export async function appendPunch({ project, worker, sub, action, stamp, missed,
     Action: action,
     Source: source || (missed ? 'manual' : 'scan'),
     Edited: missed ? 'Y' : '',
+    // Attribution: only a correction (missed) is an "adjustment"; a live scan leaves these blank.
+    EditedAt: missed ? (editedAt || etStamp()) : '',
+    EditedBy: missed ? (editedBy || '') : '',
   };
   await appendRow(TABS.PUNCHES, row);
   return row;

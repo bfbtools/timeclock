@@ -21,8 +21,8 @@ const projects = [
 // Ana:   clean 5h on P03 (07-14).
 const punches = [
   { PunchID: 'p1', WorkerID: 'SI06', Project: 'P01', Action: 'IN',  Timestamp: '2026-07-13 07:00:00' },
-  { PunchID: 'p2', WorkerID: 'SI06', Project: 'P01', Action: 'OUT', Timestamp: '2026-07-13 15:00:00' },
-  { PunchID: 'p3', WorkerID: 'SI06', Project: 'P01', Action: 'OUT', Timestamp: '2026-07-13 16:00:00' }, // orphan → issue
+  { PunchID: 'p2', WorkerID: 'SI06', Project: 'P01', Action: 'OUT', Timestamp: '2026-07-13 15:00:00', Edited: 'Y', EditedBy: 'Antony', EditedAt: '2026-07-16 06:53:00' },
+  { PunchID: 'p3', WorkerID: 'SI06', Project: 'P01', Action: 'OUT', Timestamp: '2026-07-13 16:00:00', Edited: 'Y', EditedBy: 'Office', EditedAt: '2026-07-16 09:00:00' }, // orphan → issue
   { PunchID: 'p4', WorkerID: 'SI06', Project: 'P01', Action: 'IN',  Timestamp: '2026-07-15 08:00:00' }, // open today
   { PunchID: 'p5', WorkerID: 'LO02', Project: 'P03', Action: 'IN',  Timestamp: '2026-07-14 07:00:00' },
   { PunchID: 'p6', WorkerID: 'LO02', Project: 'P03', Action: 'OUT', Timestamp: '2026-07-14 12:00:00' },
@@ -86,6 +86,20 @@ test('summarize: shifts — paired rows + broken rows, grouped subs', () => {
   assert.equal(orphan.inAt, '');
   assert.equal(orphan.punchId, 'p3');
   assert.deepEqual(r.subs, ['Lopez Exterior', 'San Ignacio LLC']);
+});
+
+test('summarize: edit attribution flows to shifts + issues', () => {
+  const r = summarize({ workers, projects, punches, subs, from: '2026-07-13', to: '2026-07-15', today: '2026-07-15' });
+  const willy = r.shifts.find((s) => s.name === 'Willy' && !s.issue); // the paired 8h shift
+  assert.equal(willy.outEdited, true);
+  assert.equal(willy.outEditedBy, 'Antony');
+  assert.equal(willy.outEditedAt, '2026-07-16 06:53:00');
+  assert.equal(willy.inEdited, false);   // the clock-in wasn't edited
+  assert.equal(willy.inEditedBy, '');
+  const orphanIssue = r.issues.find((i) => i.reason === 'clock-out with no clock-in');
+  assert.equal(orphanIssue.edited, true);
+  assert.equal(orphanIssue.editedBy, 'Office');
+  assert.equal(orphanIssue.editedAt, '2026-07-16 09:00:00');
 });
 
 test('summarize: date range filters out-of-range days', () => {

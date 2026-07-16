@@ -14,7 +14,7 @@
 import { json, body, query, guard } from './lib/http.js';
 import { readTab, updateRow, deleteRow } from './lib/sheets.js';
 import { TABS } from './lib/config.js';
-import { appendPunch } from './lib/model.js';
+import { appendPunch, etStamp } from './lib/model.js';
 
 // "YYYY-MM-DDTHH:mm[:ss]" (or space form) → "YYYY-MM-DD HH:mm:ss". Exported for tests.
 export function normStamp(at) {
@@ -30,7 +30,8 @@ export default guard(async (req) => {
   if (!expected) return json(403, { ok: false, error: 'ADMIN_TOKEN is not configured' });
   if (token !== expected) return json(401, { ok: false, error: 'Unauthorized' });
 
-  const { op, punchId, workerId, action, at, projectId } = await body(req);
+  const { op, punchId, workerId, action, at, projectId, editedBy } = await body(req);
+  const who = (editedBy && String(editedBy).trim()) || 'Office'; // Slab passes the active profile name; else "Office"
 
   if (op === 'delete') {
     if (!punchId) return json(400, { ok: false, error: 'punchId required' });
@@ -48,7 +49,7 @@ export default guard(async (req) => {
     const { rows } = await readTab(TABS.PUNCHES);
     const p = rows.find((r) => String(r.PunchID).trim() === String(punchId).trim());
     if (!p) return json(404, { ok: false, error: 'Punch not found' });
-    const patch = { Timestamp: stamp, Source: 'manual', Edited: 'Y' };
+    const patch = { Timestamp: stamp, Source: 'manual', Edited: 'Y', EditedAt: etStamp(), EditedBy: who };
     if (action === 'IN' || action === 'OUT') patch.Action = action;
     await updateRow(TABS.PUNCHES, p._rowNumber, patch);
     return json(200, { ok: true, op, at: stamp });
@@ -73,7 +74,7 @@ export default guard(async (req) => {
     const project = proj
       ? { SiteName: proj.SiteName, ProjectID: proj.ProjectID }
       : (pid ? { SiteName: '', ProjectID: pid } : null);
-    const row = await appendPunch({ project, worker, sub: worker.SubID, action, stamp, missed: true });
+    const row = await appendPunch({ project, worker, sub: worker.SubID, action, stamp, missed: true, editedBy: who, editedAt: etStamp() });
     return json(200, { ok: true, op, at: stamp, punchId: row.PunchID });
   }
 
