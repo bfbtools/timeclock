@@ -136,21 +136,28 @@
 
       <!-- ============ VIEW: MISSED CLOCK-OUT RECOVERY ============ -->
       <section class="view" id="view-recovery">
-        <div class="form-title" data-i18n="rec_title">Finish your last shift</div>
-        <div class="form-note" id="recNote" data-i18n="rec_note">You clocked in but never clocked out. When did you leave?</div>
+        <div class="form-title" data-i18n="rec_title">Fix your last shift</div>
+        <div class="form-note" id="recNote" data-i18n="rec_note">We have a clock-in but no clock-out for this shift. Check both times and fix whatever’s off.</div>
         <div class="field">
           <label data-i18n="rec_date">Day you worked</label>
           <input type="text" id="recDay" readonly>
         </div>
         <div class="field">
-          <label data-i18n="rec_time">Clock-out time</label>
+          <label data-i18n="rec_in">Clock-in</label>
+          <div class="timepick">
+            <div class="select-shell"><select id="recIn" class="time-sel"></select><span class="material-symbols-rounded select-chev">expand_more</span></div>
+            <div class="select-shell ampm"><select id="recInAP" class="ampm-sel"><option>AM</option><option>PM</option></select><span class="material-symbols-rounded select-chev">expand_more</span></div>
+          </div>
+        </div>
+        <div class="field">
+          <label data-i18n="rec_out">Clock-out</label>
           <div class="timepick">
             <div class="select-shell"><select id="recTime" class="time-sel"></select><span class="material-symbols-rounded select-chev">expand_more</span></div>
             <div class="select-shell ampm"><select id="recTimeAP" class="ampm-sel"><option>AM</option><option>PM</option></select><span class="material-symbols-rounded select-chev">expand_more</span></div>
           </div>
         </div>
         <div class="spacer"></div>
-        <button class="clock-btn out" id="recSubmit"><span class="material-symbols-rounded">history</span><span data-i18n="rec_save">Save clock-out</span></button>
+        <button class="clock-btn out" id="recSubmit"><span class="material-symbols-rounded">schedule</span><span data-i18n="rec_save">Fix my hours</span></button>
         <button class="linkbtn" id="recCancel" data-i18n="cancel">Cancel</button>
       </section>
 

@@ -27,9 +27,10 @@ const I = {
     wrongTip: 'Tap Switch when you change jobsites so your time follows you.',
     wrongSwitchTo: 'Switch to {scanned}',
     scanAgain: 'I scanned the wrong code',
-    rec_title: 'Finish your last shift',
-    rec_note: 'You clocked in but never clocked out. When did you leave?',
-    rec_date: 'Day you worked', rec_time: 'Clock-out time', rec_save: 'Save clock-out',
+    rec_title: 'Fix your last shift',
+    rec_note: 'We have a clock-in but no clock-out for this shift. Check both times and fix whatever’s off.',
+    rec_date: 'Day you worked', rec_in: 'Clock-in', rec_out: 'Clock-out', rec_save: 'Fix my hours',
+    rec_misorder: 'Clock-out must be after clock-in.',
     fb_title: 'Add yourself',
     fb_note: 'New here? Add your name and set a PIN. Your rate is set by the office.',
     fb_first: 'First name', fb_last: 'Last name', fb_sub: 'Your company / sub',
@@ -101,9 +102,10 @@ const I = {
     wrongTip: 'Toca Cambiar cuando cambies de obra para que tu tiempo te siga.',
     wrongSwitchTo: 'Cambiar a {scanned}',
     scanAgain: 'Escaneé el código equivocado',
-    rec_title: 'Termina tu último turno',
-    rec_note: 'Marcaste entrada pero no salida. ¿A qué hora te fuiste?',
-    rec_date: 'Día que trabajaste', rec_time: 'Hora de salida', rec_save: 'Guardar salida',
+    rec_title: 'Corrige tu último turno',
+    rec_note: 'Tenemos una entrada pero no una salida de este turno. Revisa las dos horas y corrige lo que falte.',
+    rec_date: 'Día que trabajaste', rec_in: 'Entrada', rec_out: 'Salida', rec_save: 'Corregir mis horas',
+    rec_misorder: 'La salida debe ser después de la entrada.',
     fb_title: 'Agrégate',
     fb_note: '¿Eres nuevo? Agrega tu nombre y crea un PIN. La oficina define tu tarifa.',
     fb_first: 'Nombre', fb_last: 'Apellido', fb_sub: 'Tu compañía / sub',
@@ -323,7 +325,7 @@ function demoSite() {
       { id: 'W3', name: 'Carlito', sub: 'San Ignacio', type: 'employee', hasPin: true, status: 'out', todayHours: 0, weekHours: 40 },
       { id: 'W4', name: 'Elman', sub: 'SnowPeak', type: 'employee', hasPin: false, status: 'out', todayHours: 0, weekHours: 0 },
       { id: 'W6', name: 'Nelson', sub: 'SnowPeak', type: 'employee', hasPin: true, status: 'in', todayHours: 5, weekHours: 16,
-        openPriorDate: true, openInfo: { date: priorDayISO(), label: priorDayLabel() } },
+        openPriorDate: true, openInfo: { date: priorDayISO(), label: priorDayLabel(), time: '07:00', punchId: 'demo-open' } },
     ],
   };
 }
@@ -416,6 +418,7 @@ function applyI18n() {
   // Re-render whatever dynamic screen is open so it picks up the new language.
   if (views.timelog.classList.contains('active') && state.timelog) renderTimeLog(state.timelog);
   if (views.invoice.classList.contains('active') && state.invoiceData) renderInvoice(state.invoiceData);
+  if (views.recovery.classList.contains('active') && state.worker && state.worker.openInfo) $('recDay').value = recDayLabel(state.worker.openInfo);
   tick();
 }
 
@@ -684,12 +687,21 @@ function afterAuth(pin) {
 // both the recovery field and the post-recovery confirmation always show it.
 function recDayLabel(info) {
   info = info || {};
-  return info.label
-    || (info.date ? new Date(info.date + 'T00:00:00').toLocaleDateString(I[lang].loc, { weekday: 'long', month: 'long', day: 'numeric' }) : '');
+  // Prefer the date so the day localizes at render time. Live sends only { date };
+  // the offline demo also carries a prebuilt `label`, but that's frozen in one
+  // language — computing from date keeps it in sync with the EN/ES toggle.
+  if (info.date) return new Date(info.date + 'T00:00:00').toLocaleDateString(I[lang].loc, { weekday: 'long', month: 'long', day: 'numeric' });
+  return info.label || '';
 }
 function openRecovery() {
   showLoading(false);
-  $('recDay').value = recDayLabel(state.worker.openInfo);
+  const info = state.worker.openInfo || {};
+  $('recDay').value = recDayLabel(info);
+  // Prefill the recorded clock-in so they only touch it if it was wrong; the
+  // clock-out starts blank. Snap-through readTime so the "unchanged" comparison
+  // in submitRecovery isn't tripped by the 15-min rounding of the prefill.
+  writeTime('recIn', info.time || '');
+  state.recInPrefill = readTime('recIn');
   writeTime('recTime', '');
   show('recovery');
 }
@@ -704,18 +716,27 @@ function openClockChoice(mode) {
 }
 async function submitRecovery() {
   if (state.recovering) return; // block a double-tap closing the shift twice
-  const time = readTime('recTime');
-  if (!time) { alert(t('apMissing')); return; }
+  const info = state.worker.openInfo || {};
+  const inTime = readTime('recIn');
+  const outTime = readTime('recTime');
+  if (!inTime || !outTime) { alert(t('apMissing')); return; }
+  if (outTime <= inTime) { alert(t('rec_misorder')); return; } // "HH:mm" compares chronologically
   state.recovering = true;
   try {
-  const at = `${state.worker.openInfo.date}T${time}:00`;
-  const res = await API.punch({ workerId: state.worker.id, pin: state.authedPin, action: 'OUT', at, missed: true });
+  const date = info.date;
+  // If they corrected the clock-in, edit the OPEN in-punch in place (no dup row).
+  if (info.punchId && inTime !== state.recInPrefill) {
+    const e = await API.punchEdit({ workerId: state.worker.id, pin: state.authedPin, punchId: info.punchId, at: `${date}T${inTime}:00`, action: 'IN' });
+    if (!e.ok) { alert(e.error || t('err')); return; }
+  }
+  // Add the missing clock-out to close the shift.
+  const res = await API.punch({ workerId: state.worker.id, pin: state.authedPin, action: 'OUT', at: `${date}T${outTime}:00`, missed: true });
   if (!res.ok) { alert(res.error || t('err')); return; }
-  // Prior shift closed → they are now clocked out; auto-start today's shift, and
+  // Prior shift fixed → they are now clocked out; auto-start today's shift, and
   // flag the confirmation so it explains we closed the old shift + started a new
-  // one (otherwise landing on "You're Clocked In" after tapping Clock Out is a
+  // one (otherwise landing on "You're Clocked In" after tapping Fix my hours is a
   // surprise).
-  state.recoveryClosedDay = recDayLabel(state.worker.openInfo);
+  state.recoveryClosedDay = recDayLabel(info);
   state.worker.openPriorDate = false; state.worker.status = 'out';
   await doPunch('IN');
   } finally { state.recovering = false; }

@@ -133,11 +133,14 @@ export function computeStatus(workerPunches) {
     return { status: 'out', openPriorDate: false, openInfo: null, open: null };
   }
   const openDate = stampDate(last.Timestamp);
+  const openTime = String(last.Timestamp).slice(11, 16); // "HH:mm" of the recorded clock-in
   const priorDate = openDate < etToday();
   return {
     status: 'in',
     openPriorDate: priorDate,
-    openInfo: priorDate ? { date: openDate } : null,
+    // date/time/punchId let the recovery "Fix my hours" screen prefill the recorded
+    // clock-in and edit it (via punch-edit) if it was wrong — not just add the OUT.
+    openInfo: priorDate ? { date: openDate, time: openTime, punchId: String(last.PunchID || '').trim() } : null,
     // Where this open shift was clocked in — a live clock-out must scan the same
     // jobsite (see the front end's same-site guard). ProjectID + display name.
     open: { projectId: String(last.Project || '').trim(), siteName: last.Site || '' },

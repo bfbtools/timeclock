@@ -345,7 +345,9 @@ select.empty{color:var(--placeholder);font-weight:500;}
 .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--paper);z-index:6;color:var(--ink-soft);font-weight:600;font-size:13px;letter-spacing:1px;text-transform:uppercase;}
 /* Demo-only banner: a full-width row at the very top (the flex column's first
    item) so it never overlaps the wordmark. Hidden entirely in production. */
-.demo-badge{flex:none;text-align:center;z-index:7;background:var(--brass);color:#fff;
+/* Overlay (not a flex row) so the demo-only banner never eats layout height —
+   the demo view then fits exactly like production, where it's hidden. */
+.demo-badge{position:absolute;top:0;left:0;right:0;text-align:center;z-index:7;background:var(--brass);color:#fff;
   font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:4px 10px;}
 .hidden{display:none !important;}
 
@@ -360,14 +362,20 @@ select.empty{color:var(--placeholder);font-weight:500;}
   .screen{width:100%;max-width:100%;height:100vh;height:100dvh;border-radius:0;box-shadow:none;}
   .topbar{padding:14px 20px 12px;}
   .body{padding:14px 20px 12px;}
-  .jobsite{padding:12px 14px;}
-  .clock{padding:12px 0 16px;}      /* was 34/48 — trims jobsite→clock and clock→"who" gaps */
-  .clock .daterow{margin-top:7px;}
-  .ident-label{margin:2px 2px 7px;}
-  .flipcard{height:84px;}
-  .flipcard .leaf span{font-size:60px;line-height:84px;}
+  .jobsite{padding:10px 14px;}
+  .jobsite .name{font-size:19px;}   /* the "Scan QR to clock out" heading wraps to 3 lines in Spanish — smaller keeps it compact */
+  .clock{padding:2px 0 8px;}        /* was 34/48 — tighten the scan-card → clock gap */
+  .clock .date{margin-bottom:6px;}
+  .clock .daterow{margin-top:5px;}
+  .ident-label{margin:2px 2px 5px;}
+  .flipcard{height:76px;}
+  .flipcard .leaf span{font-size:54px;line-height:76px;}
   .flipampm{font-size:22px;}
-  .clock-btn{padding:16px;}
+  .clock-btn{padding:14px;}
+  /* Clocked-in is the tallest state (it adds the Switch Jobsite button); trim the
+     inter-element gaps so the whole stack fits one phone height without scrolling. */
+  .clock-btn.ghost{margin-top:8px;}
+  .linkrow{margin-top:8px;}
   .hint{margin-top:8px;}
   .linkbtn{margin-top:9px;}
 }
