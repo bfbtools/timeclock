@@ -207,8 +207,11 @@ select.empty{color:var(--placeholder);font-weight:500;}
 
 /* ---- confirmation overlay ---- */
 .confirm{position:absolute;inset:0;background:var(--pine);color:#fff;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;padding:30px;opacity:0;visibility:hidden;transition:opacity .25s ease;z-index:5;}
+  align-items:stretch;justify-content:flex-start;padding:30px;opacity:0;visibility:hidden;transition:opacity .25s ease;z-index:5;}
 .confirm.show{opacity:1;visibility:visible;}
+/* Success content fills the middle (centered); action buttons lock to the bottom. */
+.confirm-body{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+.confirm-actions{flex:none;width:100%;}
 .confirm.out{background:var(--forge);}
 .confirm .ring{width:118px;height:118px;border-radius:50%;background:rgba(255,255,255,0.14);
   display:flex;align-items:center;justify-content:center;margin-bottom:26px;position:relative;}
@@ -240,8 +243,8 @@ select.empty{color:var(--placeholder);font-weight:500;}
 .warn-banner{display:flex;align-items:center;gap:11px;margin-top:18px;background:#fbeecb;border:1.5px solid var(--brass);
   border-radius:12px;padding:13px 15px;color:var(--ink);font-size:13px;line-height:1.4;}
 .warn-banner .warn-flag{color:var(--brass);font-size:22px;flex:0 0 auto;}
-.confirm .reset{margin-top:34px;background:transparent;border:1.5px solid rgba(255,255,255,0.4);color:#fff;
-  font-family:'Libre Franklin';font-weight:600;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;padding:11px 20px;border-radius:8px;cursor:pointer;}
+.confirm .reset{width:100%;margin-top:18px;background:transparent;border:1.5px solid rgba(255,255,255,0.55);color:#fff;
+  font-family:'Libre Franklin';font-weight:600;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;padding:14px 20px;border-radius:8px;cursor:pointer;}
 @keyframes pop{0%{transform:scale(0);}100%{transform:scale(1);}}
 @keyframes pulse{0%{transform:scale(.85);opacity:.7;}100%{transform:scale(1.25);opacity:0;}}
 @keyframes check{0%{transform:scale(0) rotate(-15deg);opacity:0;}100%{transform:scale(1) rotate(0);opacity:1;}}

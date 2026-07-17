@@ -11,7 +11,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/css/styles.css">
+<link rel="stylesheet" href="/css/styles.css?v=2">
 </head>
 <body>
   <div class="screen">
@@ -158,7 +158,7 @@
         </div>
         <div class="spacer"></div>
         <button class="clock-btn out" id="recSubmit"><span class="material-symbols-rounded">schedule</span><span data-i18n="rec_save">Fix my hours</span></button>
-        <button class="linkbtn" id="recCancel" data-i18n="cancel">Cancel</button>
+        <button class="clock-btn ghost" id="recCancel" data-i18n="cancel">Cancel</button>
       </section>
 
       <!-- ============ VIEW: WRONG JOBSITE CODE (clock-out scan at wrong site) ============ -->
@@ -188,7 +188,7 @@
         </div>
         <div class="spacer"></div>
         <button class="clock-btn" id="fbSubmit"><span class="material-symbols-rounded">person_add</span><span data-i18n="fb_save">Continue &amp; set PIN</span></button>
-        <button class="linkbtn" id="fbCancel" data-i18n="cancel">Cancel</button>
+        <button class="clock-btn ghost" id="fbCancel" data-i18n="cancel">Cancel</button>
       </section>
 
       <!-- ============ VIEW: TIME LOG (employees) ============ -->
@@ -252,7 +252,7 @@
         <div class="spacer"></div>
         <button class="clock-btn" id="apSubmit"><span class="material-symbols-rounded">check</span><span data-i18n="ap_save">Save</span></button>
         <button class="clock-btn ghost danger hidden" id="apRemove"><span class="material-symbols-rounded">delete</span><span data-i18n="removePunch">Remove Punch</span></button>
-        <button class="linkbtn" id="apCancel" data-i18n="cancel">Cancel</button>
+        <button class="clock-btn ghost" id="apCancel" data-i18n="cancel">Cancel</button>
       </section>
 
       <!-- ============ VIEW: INVOICE DRAFT (owners / independents) ============ -->
@@ -328,7 +328,7 @@
         </div>
         <div class="spacer"></div>
         <button class="clock-btn" id="swConfirm"><span class="material-symbols-rounded">swap_horiz</span><span data-i18n="sw_confirm">Switch jobsite</span></button>
-        <button class="linkbtn" id="swCancel" data-i18n="cancel">Cancel</button>
+        <button class="clock-btn ghost" id="swCancel" data-i18n="cancel">Cancel</button>
       </section>
 
       <!-- ============ VIEW: QR SCANNER ============ -->
@@ -356,7 +356,7 @@
         <div class="field"><label data-i18n="rate_new">New rate ($/hr)</label><input type="number" id="rateInput" inputmode="decimal" placeholder="0.00"></div>
         <div class="spacer"></div>
         <button class="clock-btn" id="rateSave"><span class="material-symbols-rounded">payments</span><span data-i18n="rate_save">Save rate</span></button>
-        <button class="linkbtn" id="rateCancel" data-i18n="cancel">Cancel</button>
+        <button class="clock-btn ghost" id="rateCancel" data-i18n="cancel">Cancel</button>
       </section>
 
     </div>
@@ -367,13 +367,18 @@
         <span class="material-symbols-rounded cnote-flag">flag</span>
         <span class="cnote-text" id="cNoteText"></span>
       </div>
-      <div class="ring"><span class="material-symbols-rounded" id="cIcon">check</span></div>
-      <div class="status" id="cStatus">YOU'RE<br>CLOCKED IN</div>
-      <div class="who" id="cWho">—</div>
-      <div class="stamp" id="cStamp">—</div>
-      <div class="stamp-label" id="cDate">—</div>
-      <div class="csite" id="cSite">—</div>
-      <button class="reset" id="cDone" data-i18n="done">Done</button>
+      <div class="confirm-body">
+        <div class="ring"><span class="material-symbols-rounded" id="cIcon">check</span></div>
+        <div class="status" id="cStatus">YOU'RE<br>CLOCKED IN</div>
+        <div class="who" id="cWho">—</div>
+        <div class="stamp" id="cStamp">—</div>
+        <div class="stamp-label" id="cDate">—</div>
+        <div class="csite" id="cSite">—</div>
+      </div>
+      <div class="confirm-actions">
+        <button class="clock-btn hidden" id="cClockIn"><span class="material-symbols-rounded">login</span><span data-i18n="rec_clockin">Clock In</span></button>
+        <button class="reset" id="cDone" data-i18n="done">Done</button>
+      </div>
     </div>
 
     <div class="loading hidden" id="loading" data-i18n="loading">Loading…</div>
@@ -384,11 +389,11 @@
         <div class="cd-title" id="cdTitle">Remove this punch?</div>
         <div class="cd-msg" id="cdMsg">This can't be undone.</div>
         <button class="clock-btn" id="cdYes"><span class="material-symbols-rounded">delete</span><span id="cdYesLabel">Remove</span></button>
-        <button class="linkbtn" id="cdNo" data-i18n="cancel">Cancel</button>
+        <button class="clock-btn ghost" id="cdNo" data-i18n="cancel">Cancel</button>
       </div>
     </div>
   </div>
 
-  <script src="/js/app.js" type="module"></script>
+  <script src="/js/app.js?v=2" type="module"></script>
 </body>
 </html>

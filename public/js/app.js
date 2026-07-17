@@ -31,6 +31,8 @@ const I = {
     rec_note: 'We have a clock-in but no clock-out for this shift. Check both times and fix whatever’s off.',
     rec_date: 'Day you worked', rec_in: 'Clock-in', rec_out: 'Clock-out', rec_save: 'Fix my hours',
     rec_misorder: 'Clock-out must be after clock-in.',
+    rec_fixed_status: 'SHIFT<br>FIXED', rec_clockin: 'Clock In',
+    rec_fixed_note: "We fixed your {day} shift. You're clocked out — tap Clock In to start today.",
     fb_title: 'Add yourself',
     fb_note: 'New here? Add your name and set a PIN. Your rate is set by the office.',
     fb_first: 'First name', fb_last: 'Last name', fb_sub: 'Your company / sub',
@@ -106,6 +108,8 @@ const I = {
     rec_note: 'Tenemos una entrada pero no una salida de este turno. Revisa las dos horas y corrige lo que falte.',
     rec_date: 'Día que trabajaste', rec_in: 'Entrada', rec_out: 'Salida', rec_save: 'Corregir mis horas',
     rec_misorder: 'La salida debe ser después de la entrada.',
+    rec_fixed_status: 'TURNO<br>CORREGIDO', rec_clockin: 'Marcar entrada',
+    rec_fixed_note: 'Corregimos tu turno del {day}. Estás sin marcar — toca Marcar entrada para empezar hoy.',
     fb_title: 'Agrégate',
     fb_note: '¿Eres nuevo? Agrega tu nombre y crea un PIN. La oficina define tu tarifa.',
     fb_first: 'Nombre', fb_last: 'Apellido', fb_sub: 'Tu compañía / sub',
@@ -732,14 +736,34 @@ async function submitRecovery() {
   // Add the missing clock-out to close the shift.
   const res = await API.punch({ workerId: state.worker.id, pin: state.authedPin, action: 'OUT', at: `${date}T${outTime}:00`, missed: true });
   if (!res.ok) { alert(res.error || t('err')); return; }
-  // Prior shift fixed → they are now clocked out; auto-start today's shift, and
-  // flag the confirmation so it explains we closed the old shift + started a new
-  // one (otherwise landing on "You're Clocked In" after tapping Fix my hours is a
-  // surprise).
-  state.recoveryClosedDay = recDayLabel(info);
+  // Prior shift fixed → they are now clocked OUT. Do NOT auto-clock-in: two
+  // workers (Roman 7-15, Antony 7-16) re-punched out/in after the old auto-clock-in
+  // because they weren't sure it took. Instead land on a "shift fixed" screen and
+  // make them tap Clock In themselves — performing the action is what makes it stick.
   state.worker.openPriorDate = false; state.worker.status = 'out';
-  await doPunch('IN');
+  showRecoveryFixed(info, inTime, outTime);
   } finally { state.recovering = false; }
+}
+// Post-recovery: confirm the fix and let the worker clock into today with an
+// explicit tap (no silent auto-clock-in). Reuses the confirm view in "fixed" mode.
+function showRecoveryFixed(info, inTime, outTime) {
+  showLoading(false);
+  const c = $('confirm');
+  c.classList.remove('out');
+  $('cIcon').textContent = 'check';
+  $('cStatus').innerHTML = t('rec_fixed_status');
+  $('cWho').textContent = state.worker.name;
+  // Show the corrected shift (times + total) between the name and the button.
+  const f = (hhmm) => { const p = from24(hhmm); return `${p.time} ${p.ampm}`; };
+  const toMin = (s) => (+s.slice(0, 2)) * 60 + (+s.slice(3, 5));
+  $('cStamp').textContent = `${f(inTime)} – ${f(outTime)}`;
+  $('cDate').textContent = fmtHrs(Math.max(0, toMin(outTime) - toMin(inTime)) / 60);
+  $('cSite').style.display = 'none';
+  $('cNoteText').textContent = t('rec_fixed_note').replace('{day}', recDayLabel(info));
+  $('cNote').style.display = ''; c.classList.add('banner');
+  $('cClockIn').classList.remove('hidden'); // explicit Clock In for today
+  state.lastAction = null; state.recoveryClosedDay = null;
+  c.classList.add('show');
 }
 async function doPunch(action) {
   if (state.punching) return; // a double-tap must not write the same punch twice
@@ -757,6 +781,7 @@ function showFail(msg) { showLoading(false); alert(msg || t('err')); resetToCloc
 /* ------------------------------------------------------------------ confirmation */
 function showConfirm(action, atIso, siteOverride) {
   showLoading(false);
+  $('cClockIn').classList.add('hidden'); // only the post-recovery "fixed" screen shows it
   state.lastAction = action;
   const isIn = action === 'IN';
   const d = atIso ? new Date(atIso) : new Date();
@@ -793,6 +818,7 @@ function showConfirm(action, atIso, siteOverride) {
 }
 function closeConfirm() {
   $('confirm').classList.remove('show');
+  $('cClockIn').classList.add('hidden');
   // Every clock punch (IN or OUT) returns to the "scan a jobsite" home, so the
   // NEXT punch needs its own fresh scan — presence proof for both in and out.
   // (Submit Edits stays put.)
@@ -1508,6 +1534,12 @@ function bind() {
   $('fbSubmit').addEventListener('click', submitFallback);
   $('fbCancel').addEventListener('click', resetToClock);
   $('cDone').addEventListener('click', closeConfirm);
+  // Post-recovery "Clock In": the worker taps to start today (no silent auto-clock-in).
+  $('cClockIn').addEventListener('click', () => {
+    $('cClockIn').classList.add('hidden');
+    $('confirm').classList.remove('show');
+    doPunch('IN'); // clocks into the scanned site → normal "You're Clocked In" confirmation
+  });
 }
 
 /* ------------------------------------------------------------------ boot */
