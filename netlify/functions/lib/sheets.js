@@ -94,10 +94,22 @@ export async function readHeaders(tabName) {
 
 /**
  * Append one row to a tab from an object keyed by column header.
- * Missing columns are written blank; unknown keys are ignored.
+ * Missing columns are written blank. A key not yet in the header row is added as
+ * a new trailing column (so new fields like "Projects" self-provision — no manual
+ * sheet edit needed) rather than being silently dropped.
  */
 export async function appendRow(tabName, obj) {
-  const headers = await readHeaders(tabName);
+  let headers = await readHeaders(tabName);
+  const missing = Object.keys(obj).filter((k) => !headers.includes(k));
+  if (missing.length) {
+    headers = headers.concat(missing);
+    await sheets().spreadsheets.values.update({
+      spreadsheetId: spreadsheetId(),
+      range: `${tabName}!1:1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [headers] },
+    });
+  }
   const row = headers.map((h) => (obj[h] !== undefined && obj[h] !== null ? obj[h] : ''));
   await sheets().spreadsheets.values.append({
     spreadsheetId: spreadsheetId(),

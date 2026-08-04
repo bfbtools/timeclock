@@ -121,12 +121,15 @@ export async function deliverWeek({ gen, send, allowTestRoute = false }) {
   const results = [];
   let seq = 0;
 
-  const logRow = (type, id, invNo, hours, amount, status, sentTo, ws, we) =>
+  // comma-joined project names for the InvoiceLog "Projects" column (so the sheet
+  // is a complete record Cowork can confirm against, and Slab can show projects).
+  const projNames = (o) => ((o && (o.projectNames || (o.projects || []).map((p) => p && p.name).filter(Boolean))) || []).join(', ');
+  const logRow = (type, id, invNo, hours, amount, status, sentTo, ws, we, projects) =>
     appendRow(TABS.INVOICE_LOG, {
       InvoiceID: `INV-${type}-${Date.now()}-${seq++}`, InvoiceNo: invNo, Date: etStamp(),
       SubID: id, WeekStart: ws, WeekEnd: we,
       'Total Hours': hours, 'Total Amount': amount,
-      Type: type.toLowerCase(), Status: status, SentTo: sentTo,
+      Type: type.toLowerCase(), Status: status, SentTo: sentTo, Projects: projects || '',
     });
 
   for (const { sub, invoice, autoSend } of gen.subInvoices) {
@@ -149,7 +152,7 @@ export async function deliverWeek({ gen, send, allowTestRoute = false }) {
     }
     // Skip the log in test mode: a row here would make the scheduled run treat
     // the week as already invoiced and skip the real send.
-    if (send && !testTo) await logRow('sub', invoice.subId, invoiceNo, invoice.totalHours, invoice.total, status, sentTo, invoice.weekStart, invoice.weekEnd);
+    if (send && !testTo) await logRow('sub', invoice.subId, invoiceNo, invoice.totalHours, invoice.total, status, sentTo, invoice.weekStart, invoice.weekEnd, projNames(invoice));
     results.push({ type: 'sub', company: sub.CompanyName, invoiceNo, total: invoice.total, status, autoSend, ...(status === 'error' ? { error: sentTo } : {}), ...(filed ? { filed } : {}), ...(testTo ? { testTo } : {}) });
   }
 
@@ -160,7 +163,7 @@ export async function deliverWeek({ gen, send, allowTestRoute = false }) {
     if (send) {
       try { const { subject, html } = renderQBInvoiceEmail(qb, { invoiceNo, invoiceDate }); await sendEmail({ to, subject: subj(subject), html }); }
       catch (e) { status = 'error'; sentTo = e.message; }
-      if (!testTo) await logRow('QB', qb.subId, invoiceNo, qb.totalHours, qb.total, status, sentTo, qb.weekStart, qb.weekEnd);
+      if (!testTo) await logRow('QB', qb.subId, invoiceNo, qb.totalHours, qb.total, status, sentTo, qb.weekStart, qb.weekEnd, projNames(qb));
     }
     results.push({ type: 'QB', company: qb.company, invoiceNo, total: qb.total, status, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
   }
@@ -173,7 +176,7 @@ export async function deliverWeek({ gen, send, allowTestRoute = false }) {
     if (send) {
       try { const { subject, html } = renderGCInvoiceEmail(gc, { invoiceNo, invoiceDate }); await sendEmail({ to, subject: subj(subject), html }); }
       catch (e) { status = 'error'; sentTo = e.message; }
-      if (!testTo) await logRow('GC', gc.gcName, invoiceNo, gcHours, gc.total, status, sentTo, gc.weekStart, gc.weekEnd);
+      if (!testTo) await logRow('GC', gc.gcName, invoiceNo, gcHours, gc.total, status, sentTo, gc.weekStart, gc.weekEnd, projNames(gc));
     }
     results.push({ type: 'GC', gc: gc.gcName, invoiceNo, total: gc.total, status, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
   }
