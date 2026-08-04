@@ -5,7 +5,7 @@
 // prior-day clock-out recovery; those rows are marked Source=manual, Edited=Y.
 
 import { json, body, guard } from './lib/http.js';
-import { authEdit, getProjectByQR, appendPunch, etStamp, editWindowStart, displayName } from './lib/model.js';
+import { authEdit, getProjectByQR, appendPunch, etStamp, editWindowStart, displayName, getPunchesForWorkers } from './lib/model.js';
 
 export default guard(async (req) => {
   if (req.method !== 'POST') return json(405, { ok: false, error: 'Method not allowed' });
@@ -42,9 +42,15 @@ export default guard(async (req) => {
     stamp = etStamp();
   }
 
+  // Double-submit guard: read this worker's punches for the stamp's day and pass
+  // them so a double-tap / retried write can't land a second near-identical punch.
+  const day = stamp.slice(0, 10);
+  const dedupeAgainst = await getPunchesForWorkers([String(worker.WorkerID).trim()], day, day);
+
   // A missed-punch add is a correction — attribute it to the person doing it (self, or an owner for crew).
-  await appendPunch({ project, worker, sub: worker.SubID, action, stamp, missed: !!missed,
+  const row = await appendPunch({ project, worker, sub: worker.SubID, action, stamp, missed: !!missed,
     editedBy: missed ? displayName(auth.acting || auth.target) : undefined,
-    editedAt: missed ? etStamp() : undefined });
-  return json(200, { ok: true, at: stamp, action });
+    editedAt: missed ? etStamp() : undefined,
+    dedupeAgainst });
+  return json(200, { ok: true, at: stamp, action, deduped: !!(row && row._deduped) });
 });
