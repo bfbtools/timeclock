@@ -39,7 +39,9 @@ export async function subInvoicePdf(inv, meta = {}) {
   // title (wrap on width)
   const title = `${(inv.projectNames || []).join(', ')} – Back Forty Builders`;
   for (const ln of wrap(title, bold, 14, RIGHT - M)) { left(ln, M, 14, bold); y -= 18; }
-  left(`Week ${fmt(inv.weekStart)} – ${fmt(inv.weekEnd)}`, M, 10, font, SOFT); y -= 22;
+  // Work-period RANGE (MM/DD–MM/DD/YY), not the Mon–Sun billing span — so a
+  // multi-day/catch-up bill is unambiguous for A/P recon.
+  left(`Work period ${inv.period || (fmt(inv.weekStart) + ' – ' + fmt(inv.weekEnd))}`, M, 10, font, SOFT); y -= 22;
 
   // table header
   left('PROJECT', COL.proj, 9, bold, SOFT);

@@ -149,6 +149,26 @@ export function projectHours(intervals) {
   return map;
 }
 
+// Snap hours to the nearest 15 minutes (0.25 hr). INVOICE-ONLY — used by the
+// invoice builders so generated invoices show clean quarter-hours (no 10.12 /
+// 9.96). It is NEVER applied to the raw punches, /api/hours, or the Slab hours
+// display, which keep the true scan times (Adrienne wants the real record visible
+// in Slab; only the generated invoices round).
+export const roundQuarter = (h) => Math.round(((h || 0) + Number.EPSILON) * 4) / 4;
+
+// Per-project hours for ONE day's intervals with EACH shift (interval) snapped
+// to 0.25 hr. Mirrors projectHours() but rounds PER SHIFT before summing —
+// invoice use only (see roundQuarter). Rounding each shift, not the day/week
+// total, is what Adrienne asked for.
+export function projectHoursQuarter(intervals) {
+  const map = {};
+  for (const iv of intervals) {
+    const key = iv.project || '(none)';
+    map[key] = round2((map[key] || 0) + roundQuarter(iv.minutes / 60));
+  }
+  return map;
+}
+
 /* ------------------------------------------------------------------ rates */
 // What BFB pays for this worker's hours.
 export function resolvePayRate(worker, sub) {

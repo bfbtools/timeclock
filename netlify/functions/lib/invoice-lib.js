@@ -5,7 +5,7 @@
 // (hours × pay rate) with a per-day breakdown, plus a Materials line if any.
 // No lunch deduction here — lunch applies only to the GC invoice (Step 5).
 
-import { num, weekRange, summarizeWorkerWeek } from './rollup.js';
+import { num, weekRange, summarizeWorkerWeek, projectHoursQuarter } from './rollup.js';
 import { LUNCH_HOURS, QB_RATE, COST_CODE_GC } from './config.js';
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -13,6 +13,26 @@ const nameOf = (w) => (w.Nickname && String(w.Nickname).trim()) || w.First || ''
 const firstNameOf = (w) => (w.First && String(w.First).trim()) || (w.Nickname && String(w.Nickname).trim()) || '';
 // date -> Set(firstName)  becomes  [{ date, names:[...] }] sorted by date
 const rosterDays = (roster) => [...roster.entries()].sort().map(([date, names]) => ({ date, names: [...names].sort() }));
+
+// Work-period label for invoice titles/refs/line descriptions: "MM/DD–MM/DD/YY"
+// (a single-day period collapses to "MM/DD/YY"). The generator used to stamp a
+// single date; a RANGE disambiguates multi-day/catch-up bills for A/P recon
+// (see memory bill-title-date-range). Falls back to the billing week if no days
+// were worked.
+function periodLabel(startISO, endISO) {
+  if (!startISO) return '';
+  const mmdd = (iso) => { const [, m, d] = iso.split('-'); return `${m}/${d}`; };
+  const yy = (iso) => iso.split('-')[0].slice(2);
+  if (!endISO || startISO === endISO) return `${mmdd(startISO)}/${yy(startISO)}`;
+  return yy(startISO) === yy(endISO)
+    ? `${mmdd(startISO)}–${mmdd(endISO)}/${yy(endISO)}`
+    : `${mmdd(startISO)}/${yy(startISO)}–${mmdd(endISO)}/${yy(endISO)}`;
+}
+// The worked span from a roster (date -> names) Map, clamped to the billing week.
+function workedSpan(roster, weekStart, weekEnd) {
+  const dates = [...roster.keys()].sort();
+  return { workStart: dates[0] || weekStart, workEnd: dates[dates.length - 1] || weekEnd };
+}
 
 // Build the sub-facing invoice for one sub for one week.
 //   sub          : Subs row
@@ -41,15 +61,19 @@ export function buildSubInvoice({ sub, workers, punches, materials = [], project
       punches: byWorker.get(String(w.WorkerID).trim()) || [],
     });
     s.flags.forEach((f) => flags.push({ worker: nameOf(w), ...f }));
-    if (s.weekHours > 0) workerLines.push({ worker: nameOf(w), hours: s.weekHours, rate: s.payRate, amount: s.pay });
 
+    // Per-shift 15-min rounding: aggregate from quarter-hour-snapped intervals,
+    // not the raw daily totals, so the worker line ties to the project lines.
+    let workerHours = 0;
     for (const d of s.days) {
-      const dayHours = Object.values(d.projectHours).reduce((a, b) => a + b, 0);
+      const ph = projectHoursQuarter(d.intervals);
+      const dayHours = Object.values(ph).reduce((a, b) => a + b, 0);
       if (dayHours > 0) {
         if (!roster.has(d.date)) roster.set(d.date, new Set());
         roster.get(d.date).add(firstNameOf(w));
       }
-      for (const [proj, hrs] of Object.entries(d.projectHours)) {
+      for (const [proj, hrs] of Object.entries(ph)) {
+        workerHours += hrs;
         if (!projAgg.has(proj)) projAgg.set(proj, { hours: 0, amount: 0, perDay: new Map(), rates: new Set() });
         const a = projAgg.get(proj);
         a.hours += hrs;
@@ -58,6 +82,8 @@ export function buildSubInvoice({ sub, workers, punches, materials = [], project
         a.perDay.set(d.date, (a.perDay.get(d.date) || 0) + hrs);
       }
     }
+    workerHours = round2(workerHours);
+    if (workerHours > 0) workerLines.push({ worker: nameOf(w), hours: workerHours, rate: s.payRate, amount: round2(workerHours * s.payRate) });
   }
 
   const projects = [...projAgg.entries()].map(([pid, a]) => ({
@@ -77,10 +103,12 @@ export function buildSubInvoice({ sub, workers, punches, materials = [], project
   }));
   const materialsTotal = round2(mats.reduce((s, m) => s + m.amount, 0));
 
+  const { workStart, workEnd } = workedSpan(roster, weekStart, end);
   return {
     subId: sub && String(sub.SubID).trim(),
     company: sub && sub.CompanyName,
     weekStart, weekEnd: end,
+    workStart, workEnd, period: periodLabel(workStart, workEnd),
     projects, workerLines, laborTotal,
     projectNames: projects.map((p) => p.name),
     totalHours: round2(projects.reduce((s, p) => s + p.hours, 0)),
@@ -117,6 +145,7 @@ export function buildGCInvoice({ gcName, gcProjects, workersById, punches, weekS
   // projectId -> { standardHours, overrides: Map(workerId -> {name, rate, hours}) }
   const agg = new Map();
   const flags = [];
+  const workedDates = new Set();
   let lunchTotal = 0;
 
   for (const [wid, wp] of byWorker) {
@@ -125,13 +154,18 @@ export function buildGCInvoice({ gcName, gcProjects, workersById, punches, weekS
     s.flags.forEach((f) => flags.push({ worker: nameOf(worker), ...f }));
 
     for (const d of s.days) {
-      const dayTotal = Object.values(d.projectHours).reduce((a, b) => a + b, 0);
+      // Per-shift 15-min rounding, THEN deduct the flat 0.75 hr/worker/day lunch
+      // (lunch is a daily deduction, applied after the shifts are snapped).
+      const ph = projectHoursQuarter(d.intervals);
+      const dayTotal = Object.values(ph).reduce((a, b) => a + b, 0);
       if (dayTotal <= 0) continue;
+      // A worked day only counts toward this GC's period if it touched a GC project.
+      if (Object.keys(ph).some((proj) => projIds.has(proj))) workedDates.add(d.date);
       const billable = Math.max(0, dayTotal - LUNCH_HOURS);
       lunchTotal += Math.min(LUNCH_HOURS, dayTotal);
       const factor = dayTotal > 0 ? billable / dayTotal : 0; // spread lunch across the day's projects
 
-      for (const [proj, hrs] of Object.entries(d.projectHours)) {
+      for (const [proj, hrs] of Object.entries(ph)) {
         if (!projIds.has(proj)) continue;
         const adj = hrs * factor;
         if (!agg.has(proj)) agg.set(proj, { standardHours: 0, overrides: new Map() });
@@ -162,8 +196,12 @@ export function buildGCInvoice({ gcName, gcProjects, workersById, punches, weekS
     return { projectId: pid, name: (proj && proj.SiteName) || pid, standard, overrides, hours, amount };
   }).sort((x, y) => x.name.localeCompare(y.name));
 
+  const dates = [...workedDates].sort();
+  const workStart = dates[0] || weekStart;
+  const workEnd = dates[dates.length - 1] || end;
   return {
     gcName, weekStart, weekEnd: end, costCode: COST_CODE_GC,
+    workStart, workEnd, period: periodLabel(workStart, workEnd),
     lunchHours: round2(lunchTotal),
     projects,
     total: round2(projects.reduce((s, p) => s + p.amount, 0)),
@@ -178,8 +216,13 @@ export function buildGCInvoice({ gcName, gcProjects, workersById, punches, weekS
 //   - "General Labor"  = hours by workers with a per-worker pay-rate override
 //                        (e.g. Carlito @ $35), one line per such worker
 // No lunch deduction. `carpentryRate` is the label rate for standard hours.
-export function buildQBInvoice({ sub, workers, punches, projectsById = {}, weekStart, carpentryRate = QB_RATE }) {
+export function buildQBInvoice({ sub, workers, punches, projectsById = {}, weekStart, carpentryRate }) {
   const { end } = weekRange(weekStart);
+  // Rate bug fix: the "Carpentry" line reads the sub's DefaultPayRate (Lopez $45,
+  // San Ignacio $50), NOT a hardcoded $50 — an explicit override still wins.
+  // Previously this path defaulted to QB_RATE ($50), overstating Lopez ~$430/wk.
+  const rate = carpentryRate != null ? carpentryRate
+    : (num(sub && sub.DefaultPayRate) != null ? num(sub.DefaultPayRate) : QB_RATE);
   const byWorker = new Map();
   for (const p of punches) {
     const k = String(p.WorkerID).trim();
@@ -199,12 +242,13 @@ export function buildQBInvoice({ sub, workers, punches, projectsById = {}, weekS
     s.flags.forEach((f) => flags.push({ worker: nameOf(w), ...f }));
     const override = num(w.PayRateOverride); // null when on the sub default
     for (const d of s.days) {
-      const dayHours = Object.values(d.projectHours).reduce((a, b) => a + b, 0);
+      const ph = projectHoursQuarter(d.intervals); // per-shift 15-min rounding
+      const dayHours = Object.values(ph).reduce((a, b) => a + b, 0);
       if (dayHours > 0) {
         if (!roster.has(d.date)) roster.set(d.date, new Set());
         roster.get(d.date).add(firstNameOf(w));
       }
-      for (const [proj, hrs] of Object.entries(d.projectHours)) {
+      for (const [proj, hrs] of Object.entries(ph)) {
         if (!agg.has(proj)) agg.set(proj, { carpentry: 0, overrides: new Map() });
         const a = agg.get(proj);
         if (override !== null) {
@@ -218,7 +262,8 @@ export function buildQBInvoice({ sub, workers, punches, projectsById = {}, weekS
     }
   }
 
-  const wk = weekLabelSlash(weekStart);
+  const { workStart, workEnd } = workedSpan(roster, weekStart, end);
+  const period = periodLabel(workStart, workEnd); // MM/DD–MM/DD/YY work period
   const lines = [];
   const projList = [...agg.entries()]
     .map(([pid, a]) => ({ name: (projectsById[pid] && projectsById[pid].SiteName) || pid, a }))
@@ -226,11 +271,11 @@ export function buildQBInvoice({ sub, workers, punches, projectsById = {}, weekS
   for (const { name, a } of projList) {
     if (a.carpentry > 0) {
       const qty = round2(a.carpentry);
-      lines.push({ item: 'Carpentry', description: `${name} – Week of ${wk}`, qty, rate: carpentryRate, amount: round2(qty * carpentryRate) });
+      lines.push({ item: 'Carpentry', description: `${name} – ${period}`, qty, rate, amount: round2(qty * rate) });
     }
     for (const o of a.overrides.values()) {
       const qty = round2(o.hours);
-      lines.push({ item: 'General Labor', description: `${o.name} – ${name} – Week of ${wk}`, qty, rate: o.rate, amount: round2(qty * o.rate) });
+      lines.push({ item: 'General Labor', description: `${o.name} – ${name} – ${period}`, qty, rate: o.rate, amount: round2(qty * o.rate) });
     }
   }
 
@@ -238,16 +283,11 @@ export function buildQBInvoice({ sub, workers, punches, projectsById = {}, weekS
     subId: sub && String(sub.SubID).trim(),
     company: sub && sub.CompanyName,
     weekStart, weekEnd: end,
+    workStart, workEnd, period,
     lines,
     totalHours: round2(lines.reduce((s, l) => s + l.qty, 0)),
     total: round2(lines.reduce((s, l) => s + l.amount, 0)),
     days: rosterDays(roster),
     flags,
   };
-}
-
-// "2026-07-06" -> "07/06/26" (for QB line-item "Week of ..." descriptions).
-function weekLabelSlash(iso) {
-  const [y, m, d] = iso.split('-');
-  return `${m}/${d}/${y.slice(2)}`;
 }

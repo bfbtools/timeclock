@@ -50,11 +50,11 @@ export function renderSubInvoiceEmail(inv, meta = {}) {
   const invNo = meta.invoiceNo || '';
   const note = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto 16px;color:${C.ink}">
     <div style="font-size:16px;font-weight:bold">${inv.company}</div>
-    <div style="font-size:13px;color:${C.soft};margin-top:2px">Invoice #${invNo}${meta.invoiceDate ? ' • ' + fmtLong(meta.invoiceDate) : ''} • Due on receipt</div>
+    <div style="font-size:13px;color:${C.soft};margin-top:2px">Invoice #${invNo}${meta.invoiceDate ? ' • ' + fmtLong(meta.invoiceDate) : ''}${inv.period ? ' • work period ' + inv.period : ''} • Due on receipt</div>
     <div style="font-size:14px;margin-top:10px">The invoice for <b>${(inv.projectNames || []).join(', ')}</b> is attached as a PDF. Total <b>${money(inv.total)}</b>.</div>
   </div>`;
   return {
-    subject: `Invoice #${invNo} — ${inv.company} — week of ${fmt(inv.weekStart)}`,
+    subject: `Invoice #${invNo} — ${inv.company} — ${inv.period || fmt(inv.weekStart)}`,
     html: note + rosterBody(inv) + flagsBlock(inv.flags),
   };
 }
@@ -75,7 +75,7 @@ export function renderQBInvoiceEmail(qb, meta = {}) {
   const tableHtml = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto">${tableEl(head + body + totalRow('Total', money(qb.total)))}</div>`;
 
   return {
-    subject: `QB draft #${invNo} — ${qb.company} — week of ${fmt(qb.weekStart)}`,
+    subject: `QB draft #${invNo} — ${qb.company} — ${qb.period || fmt(qb.weekStart)}`,
     html: rosterBody(qb) + details + tableHtml + flagsBlock(qb.flags),
   };
 }
@@ -84,7 +84,7 @@ export function renderQBInvoiceEmail(qb, meta = {}) {
 export function renderGCInvoiceEmail(gc, meta = {}) {
   const invNo = meta.invoiceNo ? `#${meta.invoiceNo} ` : '';
   const head = tr([th('Project / worker'), th('Dates'), th('Qty', 'right'), th('Rate', 'right'), th('Amount', 'right')]);
-  const wkRange = `${fmt(gc.weekStart)} – ${fmt(gc.weekEnd)}`;
+  const wkRange = gc.period || `${fmt(gc.weekStart)} – ${fmt(gc.weekEnd)}`;
   const rows = gc.projects.map((p) => {
     const parts = [];
     if (p.standard) parts.push(tr([td(`<b>${p.name}</b>`), td(wkRange), td(String(p.standard.hours), 'right'), td(money(p.standard.rate), 'right'), td(money(p.standard.amount), 'right')]));
@@ -101,12 +101,12 @@ export function renderGCInvoiceEmail(gc, meta = {}) {
     <div style="height:4px;background:linear-gradient(90deg,${C.ember} 0 40%,${C.kraft} 40% 70%,${C.pine} 70% 100%)"></div>
     <div style="padding:24px 16px 16px">
       <div style="font-size:18px;font-weight:bold;color:${C.ink}">${gc.gcName} <span style="font-size:12px;color:${C.soft};font-weight:normal">· cost code ${gc.costCode}</span></div>
-      <div style="font-size:13px;color:${C.soft};margin-top:4px">Week ${wkRange}</div>
+      <div style="font-size:13px;color:${C.soft};margin-top:4px">Work period ${wkRange}</div>
       <div style="margin-top:14px">${tableEl(head + rows + lunch + totalRow('TOTAL', money(gc.total)))}</div>
     </div>
   </div>`;
   return {
-    subject: `GC draft ${invNo}— ${gc.gcName} — week of ${fmt(gc.weekStart)} (review before sending)`,
+    subject: `GC draft ${invNo}— ${gc.gcName} — ${gc.period || fmt(gc.weekStart)} (review before sending)`,
     html: card + flagsBlock(gc.flags),
   };
 }
