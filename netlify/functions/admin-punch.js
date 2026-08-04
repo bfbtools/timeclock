@@ -112,10 +112,10 @@ export default guard(async (req) => {
       if (hrs <= 0 || date.length !== 10) continue;
       const proj = projects.find((p) => String(p.ProjectID).trim() === String((d && d.projectId) || '').trim());
       const project = proj ? { SiteName: proj.SiteName, ProjectID: proj.ProjectID } : null;
-      const startMin = 8 * 60;                          // clock IN at 08:00
+      const startMin = 7 * 60;                          // clock IN at 07:00
       let endMin = startMin + Math.round(hrs * 60);     // OUT = start + hours
       if (endMin > 1439) endMin = 1439;                 // clamp within the day
-      const inStamp = `${date} 08:00:00`;
+      const inStamp = `${date} 07:00:00`;
       const outStamp = `${date} ${pad(Math.floor(endMin / 60))}:${pad(endMin % 60)}:00`;
       await appendPunch({ project, worker, sub: sub.SubID, action: 'IN', stamp: inStamp, missed: true, editedBy: who, editedAt: etStamp() });
       await appendPunch({ project, worker, sub: sub.SubID, action: 'OUT', stamp: outStamp, missed: true, editedBy: who, editedAt: etStamp() });
