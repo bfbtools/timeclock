@@ -88,8 +88,9 @@ export default guard(async (req) => {
     const project = proj
       ? { SiteName: proj.SiteName, ProjectID: proj.ProjectID }
       : (pid ? { SiteName: '', ProjectID: pid } : null);
-    const row = await appendPunch({ project, worker, sub: worker.SubID, action, stamp, missed: true, editedBy: who, editedAt: etStamp() });
-    return json(200, { ok: true, op, at: stamp, punchId: row.PunchID });
+    // Double-submit guard: `punches` is the current tab — swallow a duplicate add.
+    const row = await appendPunch({ project, worker, sub: worker.SubID, action, stamp, missed: true, editedBy: who, editedAt: etStamp(), dedupeAgainst: punches });
+    return json(200, { ok: true, op, at: stamp, punchId: row.PunchID, deduped: !!row._deduped });
   }
 
   // add-worker — create a new employee under a sub AND backfill a week of hours in

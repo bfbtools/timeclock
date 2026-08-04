@@ -201,12 +201,61 @@ export async function setWorkerPin(worker, pin) {
   return updateRow(TABS.WORKERS, worker._rowNumber, { PIN: String(pin) });
 }
 
+// "YYYY-MM-DD HH:mm:ss" (or T-form, single-digit hour ok) → epoch ms, or NaN.
+// Part-based so a single-digit hour parses (see rollup.toDate for the why).
+function stampMs(s) {
+  const m = String(s || '').trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+  if (!m) return NaN;
+  return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)).getTime();
+}
+
+// Find an existing punch that is effectively the SAME as a candidate write — same
+// worker + same action + same project, within `windowSec` of the same timestamp.
+// This is the idempotency guard against double-submits: the punch form (scan AND
+// manual) has been firing the write TWICE, landing near-identical rows ~1s apart;
+// the extra one orphans as "clock-out with no clock-in" and corrupts the hours
+// (root cause of the Lopez wk-07/13 under-count). Pure + unit-tested.
+export function findDuplicatePunch(existing, { workerId, action, stamp, projectId = '' }, windowSec = 90) {
+  const wid = String(workerId).trim();
+  const act = String(action || '').trim().toUpperCase();
+  const proj = String(projectId || '').trim();
+  const t = stampMs(stamp);
+  if (!Number.isFinite(t)) return null;
+  const winMs = windowSec * 1000;
+  return (existing || []).find((p) => {
+    if (String(p.WorkerID).trim() !== wid) return false;
+    if (String(p.Action || '').trim().toUpperCase() !== act) return false;
+    if (String(p.Project || '').trim() !== proj) return false;
+    const pt = stampMs(p.Timestamp);
+    return Number.isFinite(pt) && Math.abs(pt - t) <= winMs;
+  }) || null;
+}
+
 // `source` overrides the default IN/OUT source label when given (e.g. 'switch'
 // for a "Switch to Different Jobsite" pair, whose destination IN is not a
 // scanned presence punch). Otherwise: manual (missed-punch recovery) or scan.
-export async function appendPunch({ project, worker, sub, action, stamp, missed, source, editedBy, editedAt }) {
-  const row = {
-    PunchID: `P-${Date.now()}-${Math.floor(performance.now() % 1000)}`,
+export async function appendPunch({ project, worker, sub, action, stamp, missed, source, editedBy, editedAt, dedupeAgainst, dedupeWithinSec = 90 }) {
+  // Idempotency guard (double-submit fix): if the caller passes the current punch
+  // set, swallow a duplicate write and return the EXISTING row instead of adding a
+  // second near-identical punch. Marked `_deduped` (not persisted) so the endpoint
+  // can report it. add-worker backfill deliberately omits dedupeAgainst.
+  if (Array.isArray(dedupeAgainst)) {
+    const dup = findDuplicatePunch(dedupeAgainst, {
+      workerId: worker.WorkerID, action, stamp,
+      projectId: project ? project.ProjectID : '',
+    }, dedupeWithinSec);
+    if (dup) return { ...dup, _deduped: true };
+  }
+  const row = punchRow({ project, worker, action, stamp, missed, source, editedBy, editedAt });
+  await appendRow(TABS.PUNCHES, row);
+  return row;
+}
+
+// Build a Punches row (pure — no I/O). Exported so the attribution/source rules
+// are unit-testable. `id` overrides the generated PunchID (tests).
+export function punchRow({ project, worker, action, stamp, missed, source, editedBy, editedAt, id } = {}) {
+  return {
+    PunchID: id || `P-${Date.now()}-${Math.floor(performance.now() % 1000)}`,
     Timestamp: stamp,
     Site: project ? project.SiteName : '',
     Project: project ? project.ProjectID : '',
@@ -216,12 +265,12 @@ export async function appendPunch({ project, worker, sub, action, stamp, missed,
     Action: action,
     Source: source || (missed ? 'manual' : 'scan'),
     Edited: missed ? 'Y' : '',
-    // Attribution: only a correction (missed) is an "adjustment"; a live scan leaves these blank.
+    // Attribution: only a correction (missed) is an "adjustment"; a live scan leaves
+    // these blank. An edited row must NEVER be unattributed → default a missing
+    // author to 'Office' (all real callers pass the acting person's name).
     EditedAt: missed ? (editedAt || etStamp()) : '',
-    EditedBy: missed ? (editedBy || '') : '',
+    EditedBy: missed ? (editedBy || 'Office') : '',
   };
-  await appendRow(TABS.PUNCHES, row);
-  return row;
 }
 
 export async function createFallbackWorker({ first, last, subId }) {
