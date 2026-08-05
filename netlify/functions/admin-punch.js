@@ -219,5 +219,46 @@ export default guard(async (req) => {
     return json(200, { ok: true, op, workerId: String(w.WorkerID).trim(), hasPin: !!pinVal, cleared: !pinVal });
   }
 
-  return json(400, { ok: false, error: 'unknown op (use add | edit | delete | add-worker | list-workers | edit-worker | set-pin)' });
+  // list-subs — Subs rows for the Directory: company + current default pay rate.
+  //   { op:'list-subs' }
+  if (op === 'list-subs') {
+    const { rows } = await readTab(TABS.SUBS);
+    const subs = rows
+      .filter((s) => String(s.SubID || '').trim())
+      .map((s) => ({
+        subId: String(s.SubID).trim(),
+        company: s.CompanyName || '',
+        defaultPayRate: (s.DefaultPayRate === '' || s.DefaultPayRate == null) ? '' : s.DefaultPayRate,
+        hasEmployees: String(s.HasEmployees || '').trim().toUpperCase() === 'Y',
+        active: String(s.Active || '').trim().toUpperCase() === 'Y',
+      }));
+    return json(200, { ok: true, op, count: subs.length, subs });
+  }
+
+  // set-sub-rate — update a sub's default pay rate (Subs.DefaultPayRate). Applies to
+  //   FUTURE invoices only (never retroactive). Empty clears it (falls back to the
+  //   company default rate).  { op:'set-sub-rate', subId, rate }
+  if (op === 'set-sub-rate') {
+    const subId = String(b.subId || '').trim();
+    if (!subId) return json(400, { ok: false, error: 'subId required' });
+    const rawRate = (b.rate === '' || b.rate == null) ? '' : b.rate;
+    if (rawRate !== '' && !(Number(rawRate) > 0)) return json(400, { ok: false, error: 'rate must be a positive number (or empty to clear)' });
+    const { rows } = await readTab(TABS.SUBS);
+    const s = rows.find((r) => String(r.SubID || '').trim() === subId);
+    if (!s) return json(404, { ok: false, error: 'Sub not found' });
+    await updateRow(TABS.SUBS, s._rowNumber, { DefaultPayRate: rawRate });
+    return json(200, { ok: true, op, subId, defaultPayRate: rawRate });
+  }
+
+  // get-pin — reveal ONE worker's PIN for the office (admin-gated). PINs are plaintext
+  //   by spec so the office can retrieve them; returned only on explicit request, one at
+  //   a time (list-workers still never returns it).  { op:'get-pin', workerId }
+  if (op === 'get-pin') {
+    if (!workerId) return json(400, { ok: false, error: 'workerId required' });
+    const w = await getWorkerById(workerId);
+    if (!w) return json(404, { ok: false, error: 'Worker not found' });
+    return json(200, { ok: true, op, workerId: String(w.WorkerID).trim(), pin: String(w.PIN || '').trim() });
+  }
+
+  return json(400, { ok: false, error: 'unknown op (use add | edit | delete | add-worker | list-workers | edit-worker | set-pin | list-subs | set-sub-rate | get-pin)' });
 });
