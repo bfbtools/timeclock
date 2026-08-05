@@ -214,7 +214,8 @@ export default guard(async (req) => {
     if (!w) return json(404, { ok: false, error: 'Worker not found' });
     const { ok: pinOk, value: pinVal, error: pinErr } = normPin(b.pin);
     if (!pinOk) return json(400, { ok: false, error: pinErr });
-    await updateRow(TABS.WORKERS, w._rowNumber, { PIN: pinVal });
+    // Stamp PINSetAt when a PIN is set; blank it when cleared (no current PIN).
+    await updateRow(TABS.WORKERS, w._rowNumber, { PIN: pinVal, PINSetAt: pinVal ? etStamp() : '' });
     return json(200, { ok: true, op, workerId: String(w.WorkerID).trim(), hasPin: !!pinVal, cleared: !pinVal });
   }
 

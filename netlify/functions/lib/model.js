@@ -176,7 +176,11 @@ export async function buildRoster() {
   const today = etToday();
   const weekStart = mondayOf(today);
   const { end: weekEnd } = weekRange(weekStart);
-  return workers.filter(isActive).map((w) => {
+  // Creation time for picker ordering: the office add-worker/self-add flows mint
+  // `W-<epoch>` IDs, so the first 13 digits are the createdAt ms. Older SI-/LO-style
+  // IDs have no timestamp → sort as 0 and keep their sheet order below the new hires.
+  const createdMs = (id) => { const m = /^W-(\d{13})/.exec(String(id || '')); return m ? Number(m[1]) : 0; };
+  const roster = workers.filter(isActive).map((w) => {
     const punchList = byWorker.get(String(w.WorkerID).trim()) || [];
     const st = computeStatus(punchList);
     const sub = subs.get(String(w.SubID).trim());
@@ -194,11 +198,16 @@ export async function buildRoster() {
       weekHours: currentWeekHours(punchList, weekStart, weekEnd),
     };
   });
+  // Recently-created employees first (so a just-added worker like a new hire finds
+  // themselves at the top of the picker). Stable sort keeps legacy IDs in sheet order.
+  roster.sort((a, b) => createdMs(b.id) - createdMs(a.id));
+  return roster;
 }
 
 /* ----------------------------------------------------------- writes */
 export async function setWorkerPin(worker, pin) {
-  return updateRow(TABS.WORKERS, worker._rowNumber, { PIN: String(pin) });
+  // Stamp PINSetAt on every set so the office can see when a PIN was last created/changed.
+  return updateRow(TABS.WORKERS, worker._rowNumber, { PIN: String(pin), PINSetAt: etStamp() });
 }
 
 // "YYYY-MM-DD HH:mm:ss" (or T-form, single-digit hour ok) → epoch ms, or NaN.
