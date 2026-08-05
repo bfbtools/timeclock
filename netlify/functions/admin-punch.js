@@ -260,5 +260,23 @@ export default guard(async (req) => {
     return json(200, { ok: true, op, workerId: String(w.WorkerID).trim(), pin: String(w.PIN || '').trim() });
   }
 
-  return json(400, { ok: false, error: 'unknown op (use add | edit | delete | add-worker | list-workers | edit-worker | set-pin | list-subs | set-sub-rate | get-pin)' });
+  // delete-worker — remove a worker row entirely. Guards against orphaning time: if
+  //   the worker has punches it refuses unless force:true (their punches then stay in
+  //   the log as history). Clean path for removing a mis-added or duplicate worker.
+  //   { op:'delete-worker', workerId, force? }
+  if (op === 'delete-worker') {
+    if (!workerId) return json(400, { ok: false, error: 'workerId required' });
+    const w = await getWorkerById(workerId);
+    if (!w) return json(404, { ok: false, error: 'Worker not found' });
+    const wid = String(w.WorkerID).trim();
+    const { rows: punches } = await readTab(TABS.PUNCHES);
+    const punchCount = punches.filter((p) => String(p.WorkerID).trim() === wid).length;
+    if (punchCount > 0 && !b.force) {
+      return json(409, { ok: false, error: `Worker has ${punchCount} time punch(es) — deactivate instead, or resend with force to delete anyway.`, needsForce: true, punchCount });
+    }
+    await deleteRow(TABS.WORKERS, w._rowNumber);
+    return json(200, { ok: true, op, workerId: wid, punchCount });
+  }
+
+  return json(400, { ok: false, error: 'unknown op (use add | edit | delete | add-worker | list-workers | edit-worker | set-pin | list-subs | set-sub-rate | get-pin | delete-worker)' });
 });
