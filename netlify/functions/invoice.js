@@ -8,7 +8,7 @@
 import { json, query, guard } from './lib/http.js';
 import {
   getWorkerById, getSubsById, getWorkersBySub,
-  getProjectsById, getPunchesForWorkers, getMaterialsForSub, etToday,
+  getProjectsById, getPunchesForWorkers, getMaterialsForSub, etToday, normStoredPin,
 } from './lib/model.js';
 import { mondayOf, weekRange } from './lib/rollup.js';
 import { buildSubInvoice } from './lib/invoice-lib.js';
@@ -19,7 +19,7 @@ export default guard(async (req) => {
 
   const worker = await getWorkerById(workerId);
   if (!worker) return json(404, { ok: false, error: 'Worker not found' });
-  if (String(worker.PIN || '').trim() !== String(pin || '').trim()) {
+  if (normStoredPin(worker.PIN) !== normStoredPin(pin)) {
     return json(401, { ok: false, error: 'Wrong PIN' });
   }
 

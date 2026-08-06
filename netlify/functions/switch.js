@@ -14,7 +14,7 @@
 // accepted trade-off for the one-tap flow.
 
 import { json, body, guard } from './lib/http.js';
-import { getWorkerById, getProjectByQR, appendPunch, etStamp } from './lib/model.js';
+import { getWorkerById, getProjectByQR, appendPunch, etStamp, normStoredPin } from './lib/model.js';
 
 export default guard(async (req) => {
   if (req.method !== 'POST') return json(405, { ok: false, error: 'Method not allowed' });
@@ -22,7 +22,7 @@ export default guard(async (req) => {
 
   const worker = await getWorkerById(workerId);
   if (!worker) return json(404, { ok: false, error: 'Worker not found' });
-  if (String(worker.PIN || '').trim() !== String(pin || '').trim()) {
+  if (normStoredPin(worker.PIN) !== normStoredPin(pin)) {
     return json(401, { ok: false, error: 'Wrong PIN' });
   }
 

@@ -11,6 +11,16 @@ import { google } from 'googleapis';
 
 let _client = null;
 
+// Cells on these tabs are written RAW so Sheets' USER_ENTERED parsing can't coerce
+// text that merely LOOKS numeric — most importantly a 4-digit PIN like "0304",
+// which USER_ENTERED turns into the number 304 (dropping the leading zero). Because
+// updateRow rewrites the WHOLE row, a USER_ENTERED write also re-corrupts a good
+// text PIN on any unrelated edit — so the Workers tab must always be RAW. Date-
+// bearing tabs (Punches, Materials, RateLog, InvoiceLog) stay USER_ENTERED so
+// timestamps are stored as datetime values. Exported for tests.
+const RAW_TABS = new Set(['Workers']);
+export const writeOption = (tabName) => (RAW_TABS.has(tabName) ? 'RAW' : 'USER_ENTERED');
+
 function getAuth() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT;
   if (!raw) {
@@ -114,7 +124,7 @@ export async function appendRow(tabName, obj) {
   await sheets().spreadsheets.values.append({
     spreadsheetId: spreadsheetId(),
     range: `${tabName}!A1`,
-    valueInputOption: 'USER_ENTERED',
+    valueInputOption: writeOption(tabName),
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [row] },
   });
@@ -141,7 +151,7 @@ export async function updateRow(tabName, rowNumber, obj) {
   await sheets().spreadsheets.values.update({
     spreadsheetId: spreadsheetId(),
     range: `${tabName}!A${rowNumber}:${lastCol}${rowNumber}`,
-    valueInputOption: 'USER_ENTERED',
+    valueInputOption: writeOption(tabName),
     requestBody: { values: [row] },
   });
   return row;

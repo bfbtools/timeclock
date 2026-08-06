@@ -5,7 +5,7 @@
 import { json, query, guard } from './lib/http.js';
 import {
   getWorkerById, getWorkersBySub, getPunchesForWorkers,
-  currentWeekHours, displayName, etToday,
+  currentWeekHours, displayName, etToday, normStoredPin,
 } from './lib/model.js';
 import { mondayOf, weekRange } from './lib/rollup.js';
 
@@ -15,7 +15,7 @@ export default guard(async (req) => {
 
   const owner = await getWorkerById(ownerId);
   if (!owner) return json(404, { ok: false, error: 'Worker not found' });
-  if (String(owner.PIN || '').trim() !== String(pin || '').trim()) {
+  if (normStoredPin(owner.PIN) !== normStoredPin(pin)) {
     return json(401, { ok: false, error: 'Wrong PIN' });
   }
   if (String(owner.Type || '').trim().toLowerCase() !== 'owner') {

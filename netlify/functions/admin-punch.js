@@ -214,9 +214,69 @@ export default guard(async (req) => {
     if (!w) return json(404, { ok: false, error: 'Worker not found' });
     const { ok: pinOk, value: pinVal, error: pinErr } = normPin(b.pin);
     if (!pinOk) return json(400, { ok: false, error: pinErr });
-    await updateRow(TABS.WORKERS, w._rowNumber, { PIN: pinVal });
+    // Stamp PINSetAt when a PIN is set; blank it when cleared (no current PIN).
+    await updateRow(TABS.WORKERS, w._rowNumber, { PIN: pinVal, PINSetAt: pinVal ? etStamp() : '' });
     return json(200, { ok: true, op, workerId: String(w.WorkerID).trim(), hasPin: !!pinVal, cleared: !pinVal });
   }
 
-  return json(400, { ok: false, error: 'unknown op (use add | edit | delete | add-worker | list-workers | edit-worker | set-pin)' });
+  // list-subs — Subs rows for the Directory: company + current default pay rate.
+  //   { op:'list-subs' }
+  if (op === 'list-subs') {
+    const { rows } = await readTab(TABS.SUBS);
+    const subs = rows
+      .filter((s) => String(s.SubID || '').trim())
+      .map((s) => ({
+        subId: String(s.SubID).trim(),
+        company: s.CompanyName || '',
+        defaultPayRate: (s.DefaultPayRate === '' || s.DefaultPayRate == null) ? '' : s.DefaultPayRate,
+        hasEmployees: String(s.HasEmployees || '').trim().toUpperCase() === 'Y',
+        active: String(s.Active || '').trim().toUpperCase() === 'Y',
+      }));
+    return json(200, { ok: true, op, count: subs.length, subs });
+  }
+
+  // set-sub-rate — update a sub's default pay rate (Subs.DefaultPayRate). Applies to
+  //   FUTURE invoices only (never retroactive). Empty clears it (falls back to the
+  //   company default rate).  { op:'set-sub-rate', subId, rate }
+  if (op === 'set-sub-rate') {
+    const subId = String(b.subId || '').trim();
+    if (!subId) return json(400, { ok: false, error: 'subId required' });
+    const rawRate = (b.rate === '' || b.rate == null) ? '' : b.rate;
+    if (rawRate !== '' && !(Number(rawRate) > 0)) return json(400, { ok: false, error: 'rate must be a positive number (or empty to clear)' });
+    const { rows } = await readTab(TABS.SUBS);
+    const s = rows.find((r) => String(r.SubID || '').trim() === subId);
+    if (!s) return json(404, { ok: false, error: 'Sub not found' });
+    await updateRow(TABS.SUBS, s._rowNumber, { DefaultPayRate: rawRate });
+    return json(200, { ok: true, op, subId, defaultPayRate: rawRate });
+  }
+
+  // get-pin — reveal ONE worker's PIN for the office (admin-gated). PINs are plaintext
+  //   by spec so the office can retrieve them; returned only on explicit request, one at
+  //   a time (list-workers still never returns it).  { op:'get-pin', workerId }
+  if (op === 'get-pin') {
+    if (!workerId) return json(400, { ok: false, error: 'workerId required' });
+    const w = await getWorkerById(workerId);
+    if (!w) return json(404, { ok: false, error: 'Worker not found' });
+    return json(200, { ok: true, op, workerId: String(w.WorkerID).trim(), pin: String(w.PIN || '').trim() });
+  }
+
+  // delete-worker — remove a worker row entirely. Guards against orphaning time: if
+  //   the worker has punches it refuses unless force:true (their punches then stay in
+  //   the log as history). Clean path for removing a mis-added or duplicate worker.
+  //   { op:'delete-worker', workerId, force? }
+  if (op === 'delete-worker') {
+    if (!workerId) return json(400, { ok: false, error: 'workerId required' });
+    const w = await getWorkerById(workerId);
+    if (!w) return json(404, { ok: false, error: 'Worker not found' });
+    const wid = String(w.WorkerID).trim();
+    const { rows: punches } = await readTab(TABS.PUNCHES);
+    const punchCount = punches.filter((p) => String(p.WorkerID).trim() === wid).length;
+    if (punchCount > 0 && !b.force) {
+      return json(409, { ok: false, error: `Worker has ${punchCount} time punch(es) — deactivate instead, or resend with force to delete anyway.`, needsForce: true, punchCount });
+    }
+    await deleteRow(TABS.WORKERS, w._rowNumber);
+    return json(200, { ok: true, op, workerId: wid, punchCount });
+  }
+
+  return json(400, { ok: false, error: 'unknown op (use add | edit | delete | add-worker | list-workers | edit-worker | set-pin | list-subs | set-sub-rate | get-pin | delete-worker)' });
 });
