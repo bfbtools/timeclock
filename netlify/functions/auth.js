@@ -4,7 +4,7 @@
 // PINs are stored plain in Workers.PIN so the office can retrieve them (per spec).
 
 import { json, body, guard } from './lib/http.js';
-import { getWorkerById, setWorkerPin } from './lib/model.js';
+import { getWorkerById, setWorkerPin, normStoredPin } from './lib/model.js';
 
 const valid = (p) => /^\d{4}$/.test(String(p || ''));
 
@@ -25,7 +25,8 @@ export default guard(async (req) => {
     return json(200, { ok: true, action: 'set' });
   }
 
-  // Verify
+  // Verify — pad both sides so a PIN whose leading zero was stripped by an earlier
+  // USER_ENTERED write (e.g. stored 304) still matches the worker's real 0304.
   if (!stored) return json(409, { ok: false, error: 'No PIN set', needsSet: true });
-  return json(200, { ok: stored === String(pin || '').trim() });
+  return json(200, { ok: normStoredPin(stored) === normStoredPin(pin) });
 });

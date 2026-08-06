@@ -6,7 +6,7 @@
 // the PIN.)
 
 import { json, body, guard } from './lib/http.js';
-import { getWorkerById, getSubsById, displayName, etStamp } from './lib/model.js';
+import { getWorkerById, getSubsById, displayName, etStamp, normStoredPin } from './lib/model.js';
 import { updateRow, appendRow } from './lib/sheets.js';
 import { TABS } from './lib/config.js';
 import { sendEmail } from './lib/email.js';
@@ -17,7 +17,7 @@ export default guard(async (req) => {
 
   const worker = await getWorkerById(workerId);
   if (!worker) return json(404, { ok: false, error: 'Worker not found' });
-  if (String(worker.PIN || '').trim() !== String(pin || '').trim()) {
+  if (normStoredPin(worker.PIN) !== normStoredPin(pin)) {
     return json(401, { ok: false, error: 'Wrong PIN' });
   }
   const type = String(worker.Type || 'employee').toLowerCase();

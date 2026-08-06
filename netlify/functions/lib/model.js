@@ -47,6 +47,16 @@ export function displayName(w) {
 const yes = (v) => String(v).trim().toUpperCase() === 'Y' || String(v).trim().toUpperCase() === 'YES' || v === true;
 export const isActive = (row) => yes(row.Active);
 
+// A PIN read back from the Sheet may have lost a leading zero if it was ever
+// written with USER_ENTERED (e.g. "0304" stored as the number 304). PINs are
+// exactly 4 digits, so left-pad a short all-digit value back to 4 for comparison
+// — this un-breaks already-corrupted PINs without the worker re-entering them.
+// Non-numeric values (blank/unset) pass through unchanged. Exported for tests.
+export function normStoredPin(v) {
+  const s = String(v ?? '').trim();
+  return /^\d{1,4}$/.test(s) ? s.padStart(4, '0') : s;
+}
+
 export async function getProjectByQR(qr) {
   const { rows } = await readTab(TABS.PROJECTS);
   return rows.find((p) => isActive(p) && String(p.QRParam).trim() === String(qr).trim()) || null;
@@ -74,7 +84,7 @@ export async function authEdit({ targetId, actingId, pin }) {
   const delegated = actingId && String(actingId).trim() && String(actingId).trim() !== String(targetId).trim();
   const acting = delegated ? await getWorkerById(actingId) : target;
   if (!acting) return { error: 'Worker not found', status: 404 };
-  if (String(acting.PIN || '').trim() !== String(pin || '').trim()) return { error: 'Wrong PIN', status: 401 };
+  if (normStoredPin(acting.PIN) !== normStoredPin(pin)) return { error: 'Wrong PIN', status: 401 };
   if (delegated) {
     const isOwner = String(acting.Type || '').trim().toLowerCase() === 'owner';
     const sameSub = String(acting.SubID).trim() === String(target.SubID).trim();
