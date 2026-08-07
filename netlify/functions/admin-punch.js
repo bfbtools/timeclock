@@ -58,15 +58,27 @@ export default guard(async (req) => {
 
   if (op === 'edit') {
     if (!punchId) return json(400, { ok: false, error: 'punchId required' });
-    const stamp = normStamp(at);
-    if (stamp.length < 16) return json(400, { ok: false, error: 'Invalid time' });
+    const hasTime = at != null && String(at).trim() !== '';
+    const hasProj = projectId != null && String(projectId).trim() !== '';
+    if (!hasTime && !hasProj) return json(400, { ok: false, error: 'nothing to change (time or jobsite)' });
     const { rows } = await readTab(TABS.PUNCHES);
     const p = rows.find((r) => String(r.PunchID).trim() === String(punchId).trim());
     if (!p) return json(404, { ok: false, error: 'Punch not found' });
-    const patch = { Timestamp: stamp, Source: 'manual', Edited: 'Y', EditedAt: etStamp(), EditedBy: who };
+    const patch = { Source: 'manual', Edited: 'Y', EditedAt: etStamp(), EditedBy: who };
+    if (hasTime) {
+      const stamp = normStamp(at);
+      if (stamp.length < 16) return json(400, { ok: false, error: 'Invalid time' });
+      patch.Timestamp = stamp;
+    }
     if (action === 'IN' || action === 'OUT') patch.Action = action;
+    if (hasProj) {
+      const { rows: projects } = await readTab(TABS.PROJECTS);
+      const proj = projects.find((pr) => String(pr.ProjectID).trim() === String(projectId).trim());
+      patch.Project = proj ? proj.ProjectID : String(projectId).trim();
+      patch.Site = proj ? proj.SiteName : '';
+    }
     await updateRow(TABS.PUNCHES, p._rowNumber, patch);
-    return json(200, { ok: true, op, at: stamp });
+    return json(200, { ok: true, op, at: patch.Timestamp || String(p.Timestamp || ''), project: patch.Project });
   }
 
   if (op === 'add') {
@@ -104,20 +116,30 @@ export default guard(async (req) => {
     const subName = String(b.subName || '').trim();
     const payRate = (b.payRate === '' || b.payRate == null) ? '' : b.payRate;
     const days = Array.isArray(b.days) ? b.days : [];
-    if (!first && !nickname) return json(400, { ok: false, error: 'a name is required' });
-    if (!subName) return json(400, { ok: false, error: 'a sub is required' });
+    const linkId = String(b.workerId || '').trim(); // set → add hours to an EXISTING worker
 
-    const [{ rows: subs }, { rows: projects }] = await Promise.all([readTab(TABS.SUBS), readTab(TABS.PROJECTS)]);
-    const sub = subs.find((s) => String(s.CompanyName || '').trim().toLowerCase() === subName.toLowerCase());
-    if (!sub) return json(404, { ok: false, error: 'sub not found: ' + subName });
+    const { rows: projects } = await readTab(TABS.PROJECTS);
+    let worker, subId;
 
-    const wid = `W-${Date.now()}${Math.floor(Math.random() * 100)}`;
-    await appendRow(TABS.WORKERS, {
-      WorkerID: wid, First: first, Nickname: nickname, SubID: sub.SubID,
-      PayRateOverride: payRate, Type: 'employee', Active: 'Y',
-    });
-
-    const worker = { WorkerID: wid, SubID: sub.SubID, First: first, Nickname: nickname };
+    if (linkId) {
+      const existing = await getWorkerById(linkId);
+      if (!existing) return json(404, { ok: false, error: 'worker not found: ' + linkId });
+      subId = String(existing.SubID || '').trim();
+      worker = { WorkerID: existing.WorkerID, SubID: subId, First: existing.First, Nickname: existing.Nickname };
+    } else {
+      if (!first && !nickname) return json(400, { ok: false, error: 'a name is required' });
+      if (!subName) return json(400, { ok: false, error: 'a sub is required' });
+      const { rows: subs } = await readTab(TABS.SUBS);
+      const sub = subs.find((s) => String(s.CompanyName || '').trim().toLowerCase() === subName.toLowerCase());
+      if (!sub) return json(404, { ok: false, error: 'sub not found: ' + subName });
+      subId = sub.SubID;
+      const wid = `W-${Date.now()}${Math.floor(Math.random() * 100)}`;
+      await appendRow(TABS.WORKERS, {
+        WorkerID: wid, First: first, Nickname: nickname, SubID: sub.SubID,
+        PayRateOverride: payRate, Type: 'employee', Active: 'Y',
+      });
+      worker = { WorkerID: wid, SubID: sub.SubID, First: first, Nickname: nickname };
+    }
     const pad = (n) => String(n).padStart(2, '0');
     let daysLogged = 0, punches = 0;
     for (const d of days) {
@@ -131,11 +153,11 @@ export default guard(async (req) => {
       if (endMin > 1439) endMin = 1439;                 // clamp within the day
       const inStamp = `${date} 07:00:00`;
       const outStamp = `${date} ${pad(Math.floor(endMin / 60))}:${pad(endMin % 60)}:00`;
-      await appendPunch({ project, worker, sub: sub.SubID, action: 'IN', stamp: inStamp, missed: true, editedBy: who, editedAt: etStamp() });
-      await appendPunch({ project, worker, sub: sub.SubID, action: 'OUT', stamp: outStamp, missed: true, editedBy: who, editedAt: etStamp() });
+      await appendPunch({ project, worker, sub: subId, action: 'IN', stamp: inStamp, missed: true, editedBy: who, editedAt: etStamp() });
+      await appendPunch({ project, worker, sub: subId, action: 'OUT', stamp: outStamp, missed: true, editedBy: who, editedAt: etStamp() });
       daysLogged++; punches += 2;
     }
-    return json(200, { ok: true, op, workerId: wid, worker: nickname || first, subId: sub.SubID, daysLogged, punches });
+    return json(200, { ok: true, op, workerId: worker.WorkerID, worker: worker.Nickname || worker.First, subId, daysLogged, punches, linked: !!linkId });
   }
 
   // ---- Worker admin (Slab Directory: sub employees) ---------------------------
