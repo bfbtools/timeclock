@@ -45,7 +45,26 @@ function flagsBlock(flags) {
 
 // ---- sub invoice ---------------------------------------------------------
 // The invoice itself is a PDF attachment (built in lib/pdf.js); the email body
-// is the note + the Mon–Sun onsite roster.
+// is the note + the actual-scan-times read-out (the true record behind the
+// rounded PDF).
+const tclock = (stamp) => {
+  const m = String(stamp).match(/\d{4}-\d{2}-\d{2}[ T](\d{1,2}):(\d{2})/);
+  if (!m) return '';
+  let h = +m[1]; const ap = h >= 12 ? 'p' : 'a'; h = h % 12 || 12;
+  return `${h}:${m[2]}${ap}`;
+};
+const dayLabel = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
+function readoutBlock(inv) {
+  if (!inv.readout || !inv.readout.length) return '';
+  const rows = inv.readout.map((r) => {
+    const segs = r.segments.map((s) => `${dayLabel(s.date)} ${tclock(s.in)}–${tclock(s.out)} (${s.hours}h)`).join(' · ');
+    return `<div style="padding:6px 0;border-top:1px solid ${C.line}"><b style="font-size:13px;color:${C.ink}">${r.worker}</b> <span style="font-family:'Courier New',monospace;font-size:11px;color:${C.pine};font-weight:bold">${r.hours}h</span><div style="font-family:'Courier New',monospace;font-size:11px;color:${C.ink};line-height:1.7;margin-top:2px">${segs}</div></div>`;
+  }).join('');
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto 16px;background:${C.paper};border:1px solid ${C.line};border-radius:10px;padding:12px 14px">
+    <div style="font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;color:${C.forge}">Timeclock read-out — actual scan times</div>
+    <div style="font-size:11px;color:${C.soft};margin:2px 0 6px">Real stamps with each day's hours and a weekly total per person. 0-hour mis-punches omitted. Invoice qty is these hours rounded to 15 min.</div>
+    ${rows}</div>`;
+}
 export function renderSubInvoiceEmail(inv, meta = {}) {
   const invNo = meta.invoiceNo || '';
   const note = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto 16px;color:${C.ink}">
@@ -55,7 +74,7 @@ export function renderSubInvoiceEmail(inv, meta = {}) {
   </div>`;
   return {
     subject: `Invoice #${invNo} — ${inv.company} — ${inv.period || fmt(inv.weekStart)}`,
-    html: note + rosterBody(inv) + flagsBlock(inv.flags),
+    html: note + readoutBlock(inv) + flagsBlock(inv.flags),
   };
 }
 
@@ -80,33 +99,39 @@ export function renderQBInvoiceEmail(qb, meta = {}) {
   };
 }
 
-// ---- GC draft (internal review) ------------------------------------------
+// ---- GC draft (internal review) — ONE per project, per-day two-line format ----
+// Columns: Date · Item | Rate | Hours | Amount. Two lines per work day (Carpentry
+// Labor / General Labor), each with its onsite names. Hours are NET of lunch; the
+// lunch note sits at the bottom (no lunch row in the table).
 export function renderGCInvoiceEmail(gc, meta = {}) {
-  const invNo = meta.invoiceNo ? `#${meta.invoiceNo} ` : '';
-  const head = tr([th('Project / worker'), th('Dates'), th('Qty', 'right'), th('Rate', 'right'), th('Amount', 'right')]);
+  const invNo = meta.invoiceNo != null ? `#${meta.invoiceNo}` : '';
+  const mdy = (iso) => { const [y, m, d] = iso.split('-'); return `${m}/${d}/${y.slice(2)}`; };
   const wkRange = gc.period || `${fmt(gc.weekStart)} – ${fmt(gc.weekEnd)}`;
-  const rows = gc.projects.map((p) => {
-    const parts = [];
-    if (p.standard) parts.push(tr([td(`<b>${p.name}</b>`), td(wkRange), td(String(p.standard.hours), 'right'), td(money(p.standard.rate), 'right'), td(money(p.standard.amount), 'right')]));
-    p.overrides.forEach((o) => parts.push(tr([td(`&nbsp;&nbsp;↳ ${o.worker} · ${p.name}`), td(wkRange), td(String(o.hours), 'right'), td(money(o.rate), 'right'), td(money(o.amount), 'right')])));
-    return parts.join('');
-  }).join('');
-  const lunch = tr([td(`<span style="color:${C.soft}">Lunch deducted (0.75 hr/worker/day)</span>`), td(''), td(`−${gc.lunchHours}`, 'right'), td(''), td('')]);
+  const head = tr([th('Date · Item'), th('Rate', 'right'), th('Hours', 'right'), th('Amount', 'right')]);
+  const rows = (gc.days || []).map((day) => day.lines.map((l) => tr([
+    td(`<span style="font-family:'Courier New',monospace;color:${C.soft}">${mdy(day.date)}</span> <b>${l.item}</b><div style="font-size:11px;color:${C.soft};margin-top:2px">Onsite: ${(l.onsite || []).join(', ') || '—'}</div>`),
+    td(money(l.rate), 'right'), td(String(l.hours), 'right'), td(money(l.amount), 'right'),
+  ])).join('')).join('');
+  const gcTotalRow = `<tr>
+    <td style="padding:12px 8px;text-align:right;font-size:14px;font-weight:bold;color:${C.ink}">TOTAL</td><td></td>
+    <td style="padding:12px 8px;text-align:right;font-size:14px;font-weight:bold;color:${C.ink};font-family:'Courier New',monospace">${gc.totalHours}</td>
+    <td style="padding:12px 8px;text-align:right;font-size:15px;font-weight:bold;color:${C.ink};font-family:'Courier New',monospace">${money(gc.total)}</td></tr>`;
+  const note = `<div style="font-size:12px;color:${C.soft};margin-top:12px">Hours are net billable after <b>0.75 hr/worker/day lunch</b>. Carpentry ${money(gc.days?.[0]?.lines?.[0]?.rate || 68)}/hr; General Labor at each worker's GC override rate.</div>`;
 
   const card = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;background:${C.paper};border-radius:12px;overflow:hidden;border:1px solid ${C.line}">
     <div style="background:${C.forge};padding:20px 24px">
-      <div style="color:#fff;font-size:20px;font-weight:bold">Back Forty Builders</div>
-      <div style="color:${C.kraft};font-size:12px;font-weight:bold;letter-spacing:1px;margin-top:3px">GC invoice draft ${invNo}— review before sending</div>
+      <div style="color:#fff;font-size:20px;font-weight:bold">${gc.gcName} &nbsp;·&nbsp; ${gc.project ? gc.project.name : ''}</div>
+      <div style="color:${C.kraft};font-size:12px;font-weight:bold;letter-spacing:1px;margin-top:3px">GC DRAFT ${invNo} — review before sending</div>
     </div>
     <div style="height:4px;background:linear-gradient(90deg,${C.ember} 0 40%,${C.kraft} 40% 70%,${C.pine} 70% 100%)"></div>
     <div style="padding:24px 16px 16px">
-      <div style="font-size:18px;font-weight:bold;color:${C.ink}">${gc.gcName} <span style="font-size:12px;color:${C.soft};font-weight:normal">· cost code ${gc.costCode}</span></div>
-      <div style="font-size:13px;color:${C.soft};margin-top:4px">Work period ${wkRange}</div>
-      <div style="margin-top:14px">${tableEl(head + rows + lunch + totalRow('TOTAL', money(gc.total)))}</div>
+      <div style="font-size:13px;color:${C.soft}">cost code ${gc.costCode} &nbsp;·&nbsp; Work period ${wkRange}</div>
+      <div style="margin-top:14px">${tableEl(head + rows + gcTotalRow)}</div>
+      ${note}
     </div>
   </div>`;
   return {
-    subject: `GC draft ${invNo}— ${gc.gcName} — ${gc.period || fmt(gc.weekStart)} (review before sending)`,
+    subject: `GC draft ${invNo} — ${gc.gcName} · ${gc.project ? gc.project.name : ''} — ${gc.period || fmt(gc.weekStart)} (review before sending)`,
     html: card + flagsBlock(gc.flags),
   };
 }

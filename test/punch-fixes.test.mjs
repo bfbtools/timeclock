@@ -67,14 +67,14 @@ test('punchRow: a live scan leaves the edit fields blank (not an adjustment)', (
 });
 
 /* --------------------------------------------- Bug 5: GC reads GCRate */
-test('GC invoice: standard rate comes from Projects.GCRate, not a hardcoded $68', () => {
-  const gcProjects = [{ ProjectID: 'P1', SiteName: '266 College', GCName: 'Opus', GCRate: '75', BillsToGC: 'Y' }];
+test('GC invoice: Carpentry rate comes from Projects.GCRate, not a hardcoded $68', () => {
+  const project = { ProjectID: 'P1', SiteName: '266 College', GCName: 'Opus', GCRate: '75', BillsToGC: 'Y' };
   const workersById = { W1: { WorkerID: 'W1', First: 'Fredy' } };
   const punches = [
     { Timestamp: '2026-07-06 07:00:00', Action: 'IN', Project: 'P1', WorkerID: 'W1' },
     { Timestamp: '2026-07-06 15:00:00', Action: 'OUT', Project: 'P1', WorkerID: 'W1' }, // 8h → 7.25 billable
   ];
-  const gc = buildGCInvoice({ gcName: 'Opus', gcProjects, workersById, punches, weekStart: '2026-07-06' });
-  assert.equal(gc.projects[0].standard.rate, 75);          // reads the project value
-  assert.equal(gc.projects[0].standard.amount, 543.75);    // 7.25 × 75 (would be 493 at $68)
+  const gc = buildGCInvoice({ gcName: 'Opus', project, workersById, punches, weekStart: '2026-07-06' });
+  assert.equal(gc.days[0].lines[0].rate, 75);          // reads the project value
+  assert.equal(gc.days[0].lines[0].amount, 543.75);    // 7.25 × 75 (would be 493 at $68)
 });

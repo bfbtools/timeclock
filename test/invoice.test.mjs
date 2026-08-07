@@ -62,8 +62,8 @@ test('company sub: per-worker rates (Carlito $35) aggregate by project', () => {
   assert.equal(carlito.amount, 350);
 });
 
-test('GC invoice: $68 rate, 0.75 lunch/day deducted, Carlito separated @ $40', () => {
-  const gcProjects = [{ ProjectID: 'OPUS1', SiteName: 'French 1', BillsToGC: 'Y', GCName: 'Opus', GCRate: '68' }];
+test('GC draft (per project): per-day Carpentry Labor $68 + General Labor $40, lunch net', () => {
+  const project = { ProjectID: 'OPUS1', SiteName: 'French 1', BillsToGC: 'Y', GCName: 'Opus', GCRate: '68' };
   const workersById = {
     W1: { WorkerID: 'W1', First: 'Fredy' },                       // standard → $68
     WC: { WorkerID: 'WC', First: 'Carlito', GCRateOverride: '40' }, // override → $40
@@ -72,26 +72,27 @@ test('GC invoice: $68 rate, 0.75 lunch/day deducted, Carlito separated @ $40', (
     P('2026-07-06 07:00:00', 'IN', 'OPUS1', 'W1'), P('2026-07-06 15:00:00', 'OUT', 'OPUS1', 'W1'), // Fredy 8h → 7.25 billable
     P('2026-07-06 07:00:00', 'IN', 'OPUS1', 'WC'), P('2026-07-06 15:00:00', 'OUT', 'OPUS1', 'WC'), // Carlito 8h → 7.25 billable
   ];
-  const gc = buildGCInvoice({ gcName: 'Opus', gcProjects, workersById, punches, weekStart: '2026-07-06' });
+  const gc = buildGCInvoice({ gcName: 'Opus', project, workersById, punches, weekStart: '2026-07-06' });
   assert.equal(gc.costCode, '01 31 00');
+  assert.equal(gc.project.name, 'French 1');
   assert.equal(gc.lunchHours, 1.5); // 0.75 × 2 workers
-  const proj = gc.projects[0];
-  assert.equal(proj.standard.hours, 7.25);
-  assert.equal(proj.standard.rate, 68);
-  assert.equal(proj.standard.amount, 493);     // 7.25 × 68
-  assert.equal(proj.overrides.length, 1);
-  assert.equal(proj.overrides[0].worker, 'Carlito');
-  assert.equal(proj.overrides[0].rate, 40);
-  assert.equal(proj.overrides[0].amount, 290); // 7.25 × 40
+  assert.equal(gc.days.length, 1);
+  const [carp, gl] = gc.days[0].lines;
+  assert.equal(carp.item, 'Carpentry Labor');
+  assert.equal(carp.rate, 68); assert.equal(carp.hours, 7.25); assert.equal(carp.amount, 493);
+  assert.deepEqual(carp.onsite, ['Fredy']);
+  assert.equal(gl.item, 'General Labor');
+  assert.equal(gl.rate, 40); assert.equal(gl.hours, 7.25); assert.equal(gl.amount, 290);
+  assert.deepEqual(gl.onsite, ['Carlito']);
   assert.equal(gc.total, 783);                 // 493 + 290
 });
 
-test('GC invoice: lunch never makes a short day negative', () => {
-  const gcProjects = [{ ProjectID: 'OPUS1', SiteName: 'French 1', GCRate: '68' }];
+test('GC draft: lunch never makes a short day negative (no line at all)', () => {
+  const project = { ProjectID: 'OPUS1', SiteName: 'French 1', GCRate: '68' };
   const workersById = { W1: { WorkerID: 'W1', First: 'Fredy' } };
   const punches = [P('2026-07-06 07:00:00', 'IN', 'OPUS1', 'W1'), P('2026-07-06 07:30:00', 'OUT', 'OPUS1', 'W1')]; // 0.5h
-  const gc = buildGCInvoice({ gcName: 'Opus', gcProjects, workersById, punches, weekStart: '2026-07-06' });
-  assert.equal(gc.projects[0]?.standard?.hours ?? 0, 0); // 0.5 − 0.75 → 0, not negative
+  const gc = buildGCInvoice({ gcName: 'Opus', project, workersById, punches, weekStart: '2026-07-06' });
+  assert.equal(gc.days.length, 0); // 0.5 − 0.75 → 0, no billable line
   assert.equal(gc.total, 0);
 });
 

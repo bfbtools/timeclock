@@ -1,10 +1,9 @@
 // Week invoicing orchestration. `generateWeekInvoices` is pure (takes fetched
-// rows, returns all three invoice types); `fetchWeekData` reads the Sheet.
-// Rules (docs/bfb-timeclock-spec.md § Invoicing):
-//   - Independent subs      → sub invoice, ALWAYS auto-sent.
-//   - Company subs          → sub invoice auto-sent only if AutoInvoice=Y;
-//                             plus a QB draft ($50/hr Carpentry) to accounting@.
-//   - GC projects (BillsToGC=Y, grouped by GCName) → GC draft for review.
+// rows, returns the invoices); `fetchWeekData` reads the Sheet. Two buckets:
+//   - Sub invoices  → auto-sent to accounting@ + the sub (PDF + scan read-out).
+//                     Independent always; company subs only if AutoInvoice=Y.
+//   - GC drafts     → one PER Opus project (BillsToGC=Y), to accounting@ for review.
+// (QuickBooks drafts were dropped 2026-08-07.)
 
 import { readTab, appendRow } from './sheets.js';
 import { TABS } from './config.js';
@@ -80,32 +79,30 @@ export function generateWeekInvoices({ subs, workers, projects, punches, materia
     // the QB-entry source now, so a separate QB draft was redundant.
   });
 
-  // GC invoices grouped by GCName across BillsToGC=Y projects.
-  const gcProjects = projects.filter((p) => active(p) && isY(p.BillsToGC));
-  const byGC = new Map();
-  gcProjects.forEach((p) => {
-    const g = String(p.GCName || '').trim() || 'GC';
-    if (!byGC.has(g)) byGC.set(g, []);
-    byGC.get(g).push(p);
-  });
+  // One GC draft PER PROJECT (BillsToGC=Y). Each carries its project's GCName, its
+  // GCDraftSeq (Projects tab → the fixed decimal used for numbering, e.g. French 1=5),
+  // and the primary sub whose invoice number it hangs off (`<sub #>.<seq>`).
   const gcInvoices = [];
-  for (const [gcName, projs] of byGC) {
-    const gc = buildGCInvoice({ gcName, gcProjects: projs, workersById, punches, weekStart });
-    if (gc.total > 0) gcInvoices.push({ gcName, gc, primarySubId: primarySubForGC(gc, subInvoices) });
+  for (const p of projects.filter((pr) => active(pr) && isY(pr.BillsToGC))) {
+    const gcName = String(p.GCName || '').trim() || 'GC';
+    const gc = buildGCInvoice({ gcName, project: p, workersById, punches, weekStart });
+    if (gc.total > 0) {
+      gcInvoices.push({ gcName, projectId: gc.project.id, gc, primarySubId: primarySubForGC(gc, subInvoices), gcDraftSeq: num(p.GCDraftSeq) });
+    }
   }
 
   return { weekStart, subInvoices, gcInvoices };
 }
 
-// The GC invoice is an internal roll-up numbered as `<sub #>.5` (a non-payable
-// number). Its base sub is the sub with the MOST hours on this GC's projects that
+// The GC draft is an internal roll-up numbered `<sub #>.<seq>` (a non-payable
+// number). Its base sub is the sub with the MOST hours on THIS GC project that
 // week — reusing the already-computed sub-invoice project hours (tiebreak: lowest
-// SubID). Returns null when no sub had hours on those projects.
+// SubID). Returns null when no sub had hours on that project.
 function primarySubForGC(gc, subInvoices) {
-  const gcProjIds = new Set(gc.projects.map((p) => p.projectId));
+  const pid = gc.project.id;
   let primary = null, bestHrs = 0;
   for (const { sub, invoice } of subInvoices) {
-    const hrs = invoice.projects.filter((p) => gcProjIds.has(p.projectId)).reduce((s, p) => s + p.hours, 0);
+    const hrs = invoice.projects.filter((p) => p.projectId === pid).reduce((s, p) => s + p.hours, 0);
     const sid = String(sub.SubID).trim();
     if (hrs > bestHrs || (hrs === bestHrs && hrs > 0 && primary !== null && sid < primary)) {
       bestHrs = hrs; primary = sid;
@@ -186,21 +183,31 @@ export async function deliverWeek({ gen, send, allowTestRoute = false }) {
     results.push({ type: 'sub', company: sub.CompanyName, invoiceNo, total: invoice.total, status, autoSend, ...(status === 'error' ? { error: sentTo } : {}), ...(filed ? { filed } : {}), ...(testTo ? { testTo } : {}) });
   }
 
-  for (const { gc, primarySubId } of gen.gcInvoices) {
-    // Non-payable internal number: `<primary sub #>.5` (e.g. 2058.5). Falls back to
-    // the lowest sub number this week, then DEFAULT_START_NO, if no sub is linked.
+  // GC per-project decimal: use the project's GCDraftSeq (Projects tab) when set,
+  // else fill the next free slot 5..9 in a stable order — so each project's draft is
+  // predictable (French 1=.5, French 2=.6, …).
+  const usedSeq = new Set(gen.gcInvoices.map((g) => g.gcDraftSeq).filter((s) => Number.isInteger(s)));
+  let fill = 5;
+  const seqByProject = new Map();
+  for (const g of [...gen.gcInvoices].sort((a, b) => (a.gcDraftSeq ?? 99) - (b.gcDraftSeq ?? 99) || String(a.gc.project.name).localeCompare(String(b.gc.project.name)))) {
+    const seq = Number.isInteger(g.gcDraftSeq) ? g.gcDraftSeq : (() => { while (usedSeq.has(fill)) fill += 1; usedSeq.add(fill); return fill; })();
+    seqByProject.set(g.projectId, seq);
+  }
+
+  for (const { gc, primarySubId, projectId } of gen.gcInvoices) {
+    // Non-payable internal number `<primary sub #>.<seq>` (e.g. 2058.5 / 2058.6).
+    // Base falls back to the lowest sub number this week, then DEFAULT_START_NO.
     const base = (primarySubId != null && numberBySub.get(primarySubId))
       || (subNos.length ? Math.min(...subNos) : DEFAULT_START_NO);
-    const invoiceNo = base + 0.5;
+    const invoiceNo = (base * 10 + (seqByProject.get(projectId) || 5)) / 10;
     const to = testTo || acct;
-    const gcHours = Math.round(gc.projects.reduce((s, p) => s + (p.hours || 0), 0) * 100) / 100;
     let status = 'draft', sentTo = to;
     if (send) {
       try { const { subject, html } = renderGCInvoiceEmail(gc, { invoiceNo, invoiceDate }); await sendEmail({ to, subject: subj(subject), html }); }
       catch (e) { status = 'error'; sentTo = e.message; }
-      if (!testTo) await logRow('GC', gc.gcName, invoiceNo, gcHours, gc.total, status, sentTo, gc.weekStart, gc.weekEnd, projNames(gc));
+      if (!testTo) await logRow('GC', gc.gcName, invoiceNo, gc.totalHours, gc.total, status, sentTo, gc.weekStart, gc.weekEnd, gc.project.name);
     }
-    results.push({ type: 'GC', gc: gc.gcName, invoiceNo, total: gc.total, status, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
+    results.push({ type: 'GC', gc: gc.gcName, project: gc.project.name, invoiceNo, total: gc.total, status, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
   }
 
   return results;

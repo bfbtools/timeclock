@@ -51,6 +51,7 @@ export function buildSubInvoice({ sub, workers, punches, materials = [], project
   const roster = new Map();  // date -> Set(firstName) — who was onsite that day
   const flags = [];
   const workerLines = [];
+  const readout = []; // per worker: ACTUAL (unrounded) scan times for the email read-out
 
   for (const w of workers) {
     const s = summarizeWorkerWeek({
@@ -58,6 +59,20 @@ export function buildSubInvoice({ sub, workers, punches, materials = [], project
       punches: byWorker.get(String(w.WorkerID).trim()) || [],
     });
     s.flags.forEach((f) => flags.push({ worker: nameOf(w), ...f }));
+
+    // Actual scan times (unrounded) — raw in/out per shift, 0-hour mis-punches
+    // dropped. The email shows this as the true record behind the rounded invoice.
+    const segments = [];
+    let actual = 0;
+    for (const d of s.days) {
+      for (const iv of d.intervals) {
+        const h = iv.minutes / 60;
+        if (h < 0.1) continue; // drop 0-hour mis-punches
+        segments.push({ date: d.date, in: iv.in.Timestamp, out: iv.out.Timestamp, hours: round2(h) });
+        actual += h;
+      }
+    }
+    if (segments.length) readout.push({ worker: nameOf(w), hours: round2(actual), segments });
 
     // Per-shift 15-min rounding: aggregate from quarter-hour-snapped intervals,
     // not the raw daily totals, so the worker line ties to the project lines.
@@ -101,12 +116,22 @@ export function buildSubInvoice({ sub, workers, punches, materials = [], project
   const materialsTotal = round2(mats.reduce((s, m) => s + m.amount, 0));
 
   const { workStart, workEnd } = workedSpan(roster, weekStart, end);
+  // Sub's own contact block for the PDF, from optional Subs-tab columns.
+  const g = (k) => (sub && sub[k] != null ? String(sub[k]).trim() : '');
+  const contact = {
+    name: g('Contact'),
+    address: g('Address'),
+    cityStateZip: [g('City'), [g('State'), g('Zip')].filter(Boolean).join(' ')].filter(Boolean).join(', '),
+    phone: g('Phone'),
+    email: g('Email'),
+  };
   return {
     subId: sub && String(sub.SubID).trim(),
     company: sub && sub.CompanyName,
+    contact,
     weekStart, weekEnd: end,
     workStart, workEnd, period: periodLabel(workStart, workEnd),
-    projects, workerLines, laborTotal,
+    projects, workerLines, laborTotal, readout,
     projectNames: projects.map((p) => p.name),
     totalHours: round2(projects.reduce((s, p) => s + p.hours, 0)),
     materials: mats, materialsTotal,
@@ -121,87 +146,84 @@ export function buildSubInvoice({ sub, workers, punches, materials = [], project
 // GCRate ($68), with the flat 0.75 hr/worker/worked-day LUNCH deducted, and any
 // per-worker GC-rate override (Carlito @ $40) SEPARATED onto its own line.
 // Held as a DRAFT for Adrienne to review (never auto-fired to the GC).
-//   gcName       : the GC these projects bill to
-//   gcProjects   : Projects rows with BillsToGC=Y and this GCName
+// ONE GC draft PER PROJECT (Adrienne 2026-08-07). Per work DAY, two line items:
+//   - "Carpentry Labor" = all non-override workers onsite, at the project GCRate ($68)
+//   - "General Labor"    = per-worker GCRateOverride (Carlito @ $40); one line per
+//                          distinct override rate
+// Each line lists the onsite names. Hours are NET billable = per-shift-rounded
+// hours minus the flat 0.75 hr/worker/worked-day LUNCH (spread across the worker's
+// projects that day). No lunch line in the table — the email carries a bottom note.
+//   gcName       : the GC this project bills to (e.g. Opus)
+//   project      : ONE Projects row (BillsToGC=Y)
 //   workersById  : { workerId: Workers row }  (any sub — GC rate is project-based)
 //   punches      : Punches rows for the week
-export function buildGCInvoice({ gcName, gcProjects, workersById, punches, weekStart }) {
+export function buildGCInvoice({ gcName, project, workersById, punches, weekStart }) {
   const { end } = weekRange(weekStart);
-  const projIds = new Set(gcProjects.map((p) => String(p.ProjectID).trim()));
-  const projById = {};
-  gcProjects.forEach((p) => { projById[String(p.ProjectID).trim()] = p; });
+  const projId = String(project.ProjectID).trim();
+  const gcRate = num(project.GCRate) || 0;
 
-  const relevant = punches.filter((p) => projIds.has(String(p.Project).trim()));
   const byWorker = new Map();
-  for (const p of relevant) {
+  for (const p of punches) {
+    if (String(p.Project).trim() !== projId) continue;
     const k = String(p.WorkerID).trim();
     if (!byWorker.has(k)) byWorker.set(k, []);
     byWorker.get(k).push(p);
   }
 
-  // projectId -> { standardHours, overrides: Map(workerId -> {name, rate, hours}) }
-  const agg = new Map();
+  // date -> { carpentry:{hours, onsite:Set}, general: Map(rate -> {hours, onsite:Set}) }
+  const byDay = new Map();
   const flags = [];
-  const workedDates = new Set();
-  let lunchTotal = 0;
+  let grossTotal = 0, netTotal = 0;
 
   for (const [wid, wp] of byWorker) {
     const worker = workersById[wid] || { WorkerID: wid };
     const s = summarizeWorkerWeek({ worker, sub: null, punches: wp, weekStartMonday: weekStart });
     s.flags.forEach((f) => flags.push({ worker: nameOf(worker), ...f }));
-
+    const override = num(worker.GCRateOverride);
     for (const d of s.days) {
-      // Per-shift 15-min rounding, THEN deduct the flat 0.75 hr/worker/day lunch
-      // (lunch is a daily deduction, applied after the shifts are snapped).
-      const ph = projectHoursQuarter(d.intervals);
-      const dayTotal = Object.values(ph).reduce((a, b) => a + b, 0);
-      if (dayTotal <= 0) continue;
-      // A worked day only counts toward this GC's period if it touched a GC project.
-      if (Object.keys(ph).some((proj) => projIds.has(proj))) workedDates.add(d.date);
-      const billable = Math.max(0, dayTotal - LUNCH_HOURS);
-      lunchTotal += Math.min(LUNCH_HOURS, dayTotal);
-      const factor = dayTotal > 0 ? billable / dayTotal : 0; // spread lunch across the day's projects
-
-      for (const [proj, hrs] of Object.entries(ph)) {
-        if (!projIds.has(proj)) continue;
-        const adj = hrs * factor;
-        if (!agg.has(proj)) agg.set(proj, { standardHours: 0, overrides: new Map() });
-        const a = agg.get(proj);
-        const override = num(worker.GCRateOverride);
-        if (override !== null) {
-          const o = a.overrides.get(wid) || { name: nameOf(worker), rate: override, hours: 0 };
-          o.hours += adj;
-          a.overrides.set(wid, o);
-        } else {
-          a.standardHours += adj;
-        }
+      const ph = projectHoursQuarter(d.intervals);            // per-shift 15-min rounded (all projects)
+      const projHrs = ph[projId] || 0;
+      if (projHrs <= 0) continue;
+      const dayTotal = Object.values(ph).reduce((a, b) => a + b, 0); // spread lunch across the day
+      const factor = dayTotal > 0 ? Math.max(0, dayTotal - LUNCH_HOURS) / dayTotal : 0;
+      const net = projHrs * factor;
+      grossTotal += projHrs; netTotal += net;
+      if (net <= 0) continue;
+      if (!byDay.has(d.date)) byDay.set(d.date, { carpentry: { hours: 0, onsite: new Set() }, general: new Map() });
+      const day = byDay.get(d.date);
+      const who = nameOf(worker);
+      if (override !== null) {
+        const g = day.general.get(override) || { hours: 0, onsite: new Set() };
+        g.hours += net; g.onsite.add(who); day.general.set(override, g);
+      } else {
+        day.carpentry.hours += net; day.carpentry.onsite.add(who);
       }
     }
   }
 
-  const projects = [...agg.entries()].map(([pid, a]) => {
-    const proj = projById[pid];
-    const gcRate = num(proj && proj.GCRate) || 0;
-    const standard = a.standardHours > 0
-      ? { hours: round2(a.standardHours), rate: gcRate, amount: round2(a.standardHours * gcRate) }
-      : null;
-    const overrides = [...a.overrides.values()].map((o) => ({
-      worker: o.name, hours: round2(o.hours), rate: o.rate, amount: round2(o.hours * o.rate),
-    }));
-    const hours = round2(a.standardHours + [...a.overrides.values()].reduce((s, o) => s + o.hours, 0));
-    const amount = round2((standard ? standard.amount : 0) + overrides.reduce((s, o) => s + o.amount, 0));
-    return { projectId: pid, name: (proj && proj.SiteName) || pid, standard, overrides, hours, amount };
-  }).sort((x, y) => x.name.localeCompare(y.name));
+  const days = [...byDay.entries()].sort().map(([date, d]) => {
+    const lines = [];
+    if (d.carpentry.hours > 0) {
+      const hours = round2(d.carpentry.hours);
+      lines.push({ item: 'Carpentry Labor', rate: gcRate, hours, amount: round2(hours * gcRate), onsite: [...d.carpentry.onsite].sort() });
+    }
+    for (const [rate, g] of [...d.general.entries()].sort((a, b) => a[0] - b[0])) {
+      const hours = round2(g.hours);
+      if (hours > 0) lines.push({ item: 'General Labor', rate, hours, amount: round2(hours * rate), onsite: [...g.onsite].sort() });
+    }
+    return { date, lines };
+  }).filter((d) => d.lines.length);
 
-  const dates = [...workedDates].sort();
-  const workStart = dates[0] || weekStart;
-  const workEnd = dates[dates.length - 1] || end;
+  const workStart = days.length ? days[0].date : weekStart;
+  const workEnd = days.length ? days[days.length - 1].date : end;
   return {
-    gcName, weekStart, weekEnd: end, costCode: COST_CODE_GC,
-    workStart, workEnd, period: periodLabel(workStart, workEnd),
-    lunchHours: round2(lunchTotal),
-    projects,
-    total: round2(projects.reduce((s, p) => s + p.amount, 0)),
+    gcName, costCode: COST_CODE_GC,
+    project: { id: projId, name: project.SiteName || projId },
+    weekStart, weekEnd: end, workStart, workEnd, period: periodLabel(workStart, workEnd),
+    days,
+    lunchHours: round2(grossTotal - netTotal),
+    totalHours: round2(days.reduce((s, d) => s + d.lines.reduce((t, l) => t + l.hours, 0), 0)),
+    total: round2(days.reduce((s, d) => s + d.lines.reduce((t, l) => t + l.amount, 0), 0)),
     flags,
   };
 }

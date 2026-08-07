@@ -46,13 +46,13 @@ test('sub invoice: each shift rounds to 15 min (raw scan times untouched)', () =
 });
 
 test('GC invoice: shift rounds first, THEN the 0.75 lunch still ties', () => {
-  const gcProjects = [{ ProjectID: 'OPUS1', SiteName: 'French 1', GCName: 'Opus', GCRate: '68', BillsToGC: 'Y' }];
+  const project = { ProjectID: 'OPUS1', SiteName: 'French 1', GCName: 'Opus', GCRate: '68', BillsToGC: 'Y' };
   const workersById = { W1: { WorkerID: 'W1', First: 'Fredy' } };
   const punches = [P('2026-07-06 07:00:00', 'IN', 'OPUS1', 'W1'), P('2026-07-06 15:07:00', 'OUT', 'OPUS1', 'W1')]; // 8h07m → 8.00
-  const gc = buildGCInvoice({ gcName: 'Opus', gcProjects, workersById, punches, weekStart: '2026-07-06' });
+  const gc = buildGCInvoice({ gcName: 'Opus', project, workersById, punches, weekStart: '2026-07-06' });
   assert.equal(gc.lunchHours, 0.75);
-  assert.equal(gc.projects[0].standard.hours, 7.25); // 8.00 − 0.75
-  assert.equal(gc.projects[0].standard.amount, 493); // 7.25 × 68
+  assert.equal(gc.days[0].lines[0].hours, 7.25); // 8.00 − 0.75
+  assert.equal(gc.days[0].lines[0].amount, 493); // 7.25 × 68
   assert.equal(gc.total, 493);
 });
 
@@ -104,6 +104,41 @@ test('generateWeekInvoices: QBDraft=N suppresses that sub; GC links to top-hours
   assert.equal(gen.subInvoices.length, 2);
   assert.equal(gen.qbInvoices, undefined);                     // QB drafts fully dropped (both subs)
   assert.equal(gen.gcInvoices[0].primarySubId, 'SANIG');       // 8h > 4h
+});
+
+test('generateWeekInvoices: ONE GC draft per Opus project, carrying its GCDraftSeq', () => {
+  const subs = [{ SubID: 'SANIG', CompanyName: 'San Ignacio', HasEmployees: 'Y', DefaultPayRate: '50', AutoInvoice: 'Y', Active: 'Y' }];
+  const workers = [{ WorkerID: 'W1', First: 'Fredy', SubID: 'SANIG', Active: 'Y' }];
+  const projects = [
+    { ProjectID: 'P01', SiteName: 'French 1', Active: 'Y', BillsToGC: 'Y', GCName: 'Opus', GCRate: '68', GCDraftSeq: '5' },
+    { ProjectID: 'P02', SiteName: 'French 2', Active: 'Y', BillsToGC: 'Y', GCName: 'Opus', GCRate: '68', GCDraftSeq: '6' },
+  ];
+  const punches = [
+    P('2026-07-06 07:00:00', 'IN', 'P01', 'W1'), P('2026-07-06 15:00:00', 'OUT', 'P01', 'W1'), // French 1
+    P('2026-07-07 07:00:00', 'IN', 'P02', 'W1'), P('2026-07-07 15:00:00', 'OUT', 'P02', 'W1'), // French 2
+  ];
+  const gen = generateWeekInvoices({ subs, workers, projects, punches, materials: [], weekStart: '2026-07-06' });
+  assert.equal(gen.gcInvoices.length, 2);                       // one draft PER project
+  const byName = Object.fromEntries(gen.gcInvoices.map((g) => [g.gc.project.name, g]));
+  assert.equal(byName['French 1'].gcDraftSeq, 5);
+  assert.equal(byName['French 2'].gcDraftSeq, 6);
+  assert.equal(byName['French 1'].projectId, 'P01');
+});
+
+/* --------------------------------------------- sub email scan-times read-out */
+test('sub invoice read-out: ACTUAL (unrounded) scan times, 0-hour junk dropped', () => {
+  const sub = { SubID: 'S1', CompanyName: 'Diego', DefaultPayRate: '50' };
+  const workers = [{ WorkerID: 'W1', First: 'Diego', SubID: 'S1' }];
+  const punches = [
+    P('2026-07-06 06:47:00', 'IN', 'PRJ_A'), P('2026-07-06 15:10:00', 'OUT', 'PRJ_A'), // 8h23m = 8.38 actual → 8.5 invoice
+    P('2026-07-07 14:00:00', 'IN', 'PRJ_A'), P('2026-07-07 14:00:20', 'OUT', 'PRJ_A'), // 20-sec junk → dropped
+  ];
+  const inv = buildSubInvoice({ sub, workers, punches, weekStart: '2026-07-06' });
+  const r = inv.readout.find((x) => x.worker === 'Diego');
+  assert.equal(r.segments.length, 1);       // 20-sec mis-punch dropped
+  assert.equal(r.segments[0].hours, 8.38);  // ACTUAL, not the 8.5 invoice qty
+  assert.equal(r.hours, 8.38);              // weekly actual total
+  assert.equal(inv.projects[0].hours, 8.5); // invoice qty IS the 15-min rounding
 });
 
 /* ------------------------------------------------------------- T5 QB rate bug */
