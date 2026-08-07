@@ -88,8 +88,8 @@ test('nextSubNumber: missing StartInvoiceNo falls back to 1001', () => {
 /* --------------------------------------------- T3 GC linkage + T4 suppression */
 test('generateWeekInvoices: QBDraft=N suppresses that sub; GC links to top-hours sub', () => {
   const subs = [
-    { SubID: 'SANIG', CompanyName: 'San Ignacio', HasEmployees: 'Y', DefaultPayRate: '50', AutoInvoice: 'Y', Active: 'Y' },              // QB on
-    { SubID: 'LOPEZ', CompanyName: 'Lopez', HasEmployees: 'Y', DefaultPayRate: '45', AutoInvoice: 'Y', Active: 'Y', QBDraft: 'N' },      // QB suppressed
+    { SubID: 'SANIG', CompanyName: 'San Ignacio', HasEmployees: 'Y', DefaultPayRate: '50', AutoInvoice: 'Y', Active: 'Y' },
+    { SubID: 'LOPEZ', CompanyName: 'Lopez', HasEmployees: 'Y', DefaultPayRate: '45', AutoInvoice: 'Y', Active: 'Y' },
   ];
   const workers = [
     { WorkerID: 'W1', First: 'Fredy', SubID: 'SANIG', Active: 'Y' },
@@ -102,8 +102,7 @@ test('generateWeekInvoices: QBDraft=N suppresses that sub; GC links to top-hours
   ];
   const gen = generateWeekInvoices({ subs, workers, projects, punches, materials: [], weekStart: '2026-07-06' });
   assert.equal(gen.subInvoices.length, 2);
-  assert.equal(gen.qbInvoices.length, 1);                       // Lopez QB dropped
-  assert.equal(gen.qbInvoices[0].qb.company, 'San Ignacio');
+  assert.equal(gen.qbInvoices, undefined);                     // QB drafts fully dropped (both subs)
   assert.equal(gen.gcInvoices[0].primarySubId, 'SANIG');       // 8h > 4h
 });
 
@@ -131,11 +130,11 @@ test('date ranges: invoices carry the MM/DD–MM/DD/YY work period', () => {
   ];
   const projectsById = { PRJ_A: { SiteName: 'French Hill' } };
   const inv = buildSubInvoice({ sub, workers, punches, projectsById, weekStart: '2026-07-06' });
-  assert.equal(inv.period, `07/06${EN}07/08/26`);
+  assert.equal(inv.period, `07/06/26${EN}07/08/26`); // full year on both sides
 
   const qb = buildQBInvoice({ sub, workers, punches, projectsById, weekStart: '2026-07-06' });
-  assert.equal(qb.period, `07/06${EN}07/08/26`);
-  assert.match(qb.lines[0].description, /07\/06–07\/08\/26$/); // line desc carries the range
+  assert.equal(qb.period, `07/06/26${EN}07/08/26`);
+  assert.match(qb.lines[0].description, /07\/06\/26–07\/08\/26$/); // line desc carries the range
 
   // single worked day collapses to MM/DD/YY
   const one = buildSubInvoice({ sub, workers, punches: punches.slice(0, 2), projectsById, weekStart: '2026-07-06' });

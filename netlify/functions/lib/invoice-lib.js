@@ -14,19 +14,16 @@ const firstNameOf = (w) => (w.First && String(w.First).trim()) || (w.Nickname &&
 // date -> Set(firstName)  becomes  [{ date, names:[...] }] sorted by date
 const rosterDays = (roster) => [...roster.entries()].sort().map(([date, names]) => ({ date, names: [...names].sort() }));
 
-// Work-period label for invoice titles/refs/line descriptions: "MM/DD–MM/DD/YY"
-// (a single-day period collapses to "MM/DD/YY"). The generator used to stamp a
-// single date; a RANGE disambiguates multi-day/catch-up bills for A/P recon
-// (see memory bill-title-date-range). Falls back to the billing week if no days
-// were worked.
+// Work-period label for invoice titles/refs/line descriptions: full date on BOTH
+// sides, "MM/DD/YY–MM/DD/YY" (a single-day period collapses to "MM/DD/YY"). The
+// generator used to stamp a single date; a RANGE disambiguates multi-day/catch-up
+// bills for A/P recon (see memory bill-title-date-range). Adrienne asked for the
+// year written out on both dates (2026-08-07). Falls back to the billing week.
 function periodLabel(startISO, endISO) {
   if (!startISO) return '';
-  const mmdd = (iso) => { const [, m, d] = iso.split('-'); return `${m}/${d}`; };
-  const yy = (iso) => iso.split('-')[0].slice(2);
-  if (!endISO || startISO === endISO) return `${mmdd(startISO)}/${yy(startISO)}`;
-  return yy(startISO) === yy(endISO)
-    ? `${mmdd(startISO)}–${mmdd(endISO)}/${yy(endISO)}`
-    : `${mmdd(startISO)}/${yy(startISO)}–${mmdd(endISO)}/${yy(endISO)}`;
+  const mdy = (iso) => { const [y, m, d] = iso.split('-'); return `${m}/${d}/${y.slice(2)}`; };
+  if (!endISO || startISO === endISO) return mdy(startISO);
+  return `${mdy(startISO)}–${mdy(endISO)}`;
 }
 // The worked span from a roster (date -> names) Map, clamped to the billing week.
 function workedSpan(roster, weekStart, weekEnd) {

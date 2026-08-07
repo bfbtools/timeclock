@@ -9,19 +9,15 @@
 import { readTab, appendRow } from './sheets.js';
 import { TABS } from './config.js';
 import { mondayOf, weekRange, dayKey, num } from './rollup.js';
-import { buildSubInvoice, buildQBInvoice, buildGCInvoice } from './invoice-lib.js';
+import { buildSubInvoice, buildGCInvoice } from './invoice-lib.js';
 import { etStamp, etParts } from './model.js';
 import { sendEmail } from './email.js';
 import { subInvoicePdf } from './pdf.js';
-import { fileSubInvoicePdf } from './need-to-be-processed.js';
-import { renderSubInvoiceEmail, renderQBInvoiceEmail, renderGCInvoiceEmail } from './email-templates.js';
+import { fileSubInvoicePdf, invoiceFileName } from './need-to-be-processed.js';
+import { renderSubInvoiceEmail, renderGCInvoiceEmail } from './email-templates.js';
 
 const isY = (v) => String(v).trim().toUpperCase().startsWith('Y');
 const active = (r) => isY(r.Active);
-// The separate QB draft is ON by default for company subs; a sub whose Subs-tab
-// `QBDraft` cell is set to N (e.g. Lopez) has it suppressed — the sub invoice is
-// the QuickBooks-entry source, so the draft would just be a redundant restatement.
-const qbDraftEnabled = (sub) => !String(sub.QBDraft || '').trim().toLowerCase().startsWith('n');
 // First invoice number for a sub with no configured StartInvoiceNo.
 const DEFAULT_START_NO = 1001;
 
@@ -66,7 +62,6 @@ export function generateWeekInvoices({ subs, workers, projects, punches, materia
   projects.forEach((p) => { projectsById[String(p.ProjectID).trim()] = p; });
 
   const subInvoices = [];
-  const qbInvoices = [];
 
   subs.filter(active).forEach((sub) => {
     const subWorkers = workers.filter((w) => active(w) && String(w.SubID).trim() === String(sub.SubID).trim());
@@ -81,11 +76,8 @@ export function generateWeekInvoices({ subs, workers, projects, punches, materia
     if (invoice.total > 0 || invoice.projects.length) {
       subInvoices.push({ sub, invoice, independent, autoSend });
     }
-
-    if (isY(sub.HasEmployees) && qbDraftEnabled(sub)) {
-      const qb = buildQBInvoice({ sub, workers: subWorkers, punches: subPunches, projectsById, weekStart });
-      if (qb.totalHours > 0) qbInvoices.push({ sub, qb });
-    }
+    // QuickBooks drafts were dropped 2026-08-07 for BOTH subs — the sub invoice is
+    // the QB-entry source now, so a separate QB draft was redundant.
   });
 
   // GC invoices grouped by GCName across BillsToGC=Y projects.
@@ -102,7 +94,7 @@ export function generateWeekInvoices({ subs, workers, projects, punches, materia
     if (gc.total > 0) gcInvoices.push({ gcName, gc, primarySubId: primarySubForGC(gc, subInvoices) });
   }
 
-  return { weekStart, subInvoices, qbInvoices, gcInvoices };
+  return { weekStart, subInvoices, gcInvoices };
 }
 
 // The GC invoice is an internal roll-up numbered as `<sub #>.5` (a non-payable
@@ -177,7 +169,10 @@ export async function deliverWeek({ gen, send, allowTestRoute = false }) {
       try {
         const { subject, html } = renderSubInvoiceEmail(invoice, { invoiceNo, invoiceDate });
         const pdf = await subInvoicePdf(invoice, { invoiceNo, invoiceDate });
-        await sendEmail({ to, subject: subj(subject), html, attachments: [{ filename: `Invoice-${invoiceNo}.pdf`, content: pdf, contentType: 'application/pdf' }] });
+        // Name the attached PDF with the BFB bill-processing convention
+        // (YYYY-MM-DD_to_MM-DD_Vendor_Projects_$Total.pdf) so the emailed copy and
+        // the Drive-filed copy share one name and bill processing skips the rename.
+        await sendEmail({ to, subject: subj(subject), html, attachments: [{ filename: invoiceFileName(invoice), content: pdf, contentType: 'application/pdf' }] });
         // Handoff 1a: file the SAME PDF straight into Need To Be Processed — the
         // real delivery path (Invoice # sends only; QB/GC drafts below never
         // file). Non-throwing, so a Drive hiccup can't fail the sent email.
@@ -189,20 +184,6 @@ export async function deliverWeek({ gen, send, allowTestRoute = false }) {
     // the week as already invoiced and skip the real send.
     if (send && !testTo) await logRow('sub', invoice.subId, invoiceNo, invoice.totalHours, invoice.total, status, sentTo, invoice.weekStart, invoice.weekEnd, projNames(invoice));
     results.push({ type: 'sub', company: sub.CompanyName, invoiceNo, total: invoice.total, status, autoSend, ...(status === 'error' ? { error: sentTo } : {}), ...(filed ? { filed } : {}), ...(testTo ? { testTo } : {}) });
-  }
-
-  for (const { sub, qb } of gen.qbInvoices) {
-    // The QB draft REUSES its sub's invoice number (it's the same invoice, restated
-    // for QuickBooks) — it no longer consumes a number of its own.
-    const invoiceNo = numberBySub.get(String(qb.subId)) ?? nextSubNumber(sub, logRows);
-    const to = testTo || acct;
-    let status = 'draft', sentTo = to;
-    if (send) {
-      try { const { subject, html } = renderQBInvoiceEmail(qb, { invoiceNo, invoiceDate }); await sendEmail({ to, subject: subj(subject), html }); }
-      catch (e) { status = 'error'; sentTo = e.message; }
-      if (!testTo) await logRow('QB', qb.subId, invoiceNo, qb.totalHours, qb.total, status, sentTo, qb.weekStart, qb.weekEnd, projNames(qb));
-    }
-    results.push({ type: 'QB', company: qb.company, invoiceNo, total: qb.total, status, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
   }
 
   for (const { gc, primarySubId } of gen.gcInvoices) {
