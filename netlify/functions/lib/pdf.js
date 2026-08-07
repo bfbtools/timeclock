@@ -32,14 +32,26 @@ export async function subInvoicePdf(inv, meta = {}) {
   page.drawRectangle({ x: 0, y: 792 - 74, width: 612, height: 74, color: rgb(0.176, 0.180, 0.157) });
   page.drawRectangle({ x: 0, y: 792 - 78, width: 612, height: 4, color: rgb(0.859, 0.337, 0.239) });
   page.drawText(inv.company, { x: M, y: 792 - 40, size: 20, font: bold, color: rgb(1, 1, 1) });
-  page.drawText(`Invoice #${meta.invoiceNo || ''}   •   ${meta.invoiceDate ? fmtLong(meta.invoiceDate) : ''}   •   Due on receipt`,
+  page.drawText(`Invoice #${meta.invoiceNo || ''}   •   ${meta.invoiceDate ? 'Sent ' + fmtLong(meta.invoiceDate) : ''}   •   Due on receipt`,
     { x: M, y: 792 - 60, size: 10, font: bold, color: rgb(0.839, 0.690, 0.482) });
 
-  y = 792 - 108;
+  y = 792 - 100;
+  // Sub contact block (the vendor's own contact info). Optional — rendered only
+  // for fields provided on inv.contact { name, address, cityStateZip, phone, email }.
+  const c = inv.contact || {};
+  const contactLines = [
+    c.name, c.address, c.cityStateZip,
+    [c.phone, c.email].filter(Boolean).join('   •   '),
+  ].filter(Boolean);
+  for (const ln of contactLines) { left(ln, M, 9, font, SOFT); y -= 12; }
+  if (contactLines.length) y -= 10;
+
   // title (wrap on width)
   const title = `${(inv.projectNames || []).join(', ')} – Back Forty Builders`;
   for (const ln of wrap(title, bold, 14, RIGHT - M)) { left(ln, M, 14, bold); y -= 18; }
-  left(`Week ${fmt(inv.weekStart)} – ${fmt(inv.weekEnd)}`, M, 10, font, SOFT); y -= 22;
+  // Work-period RANGE (MM/DD–MM/DD/YY), not the Mon–Sun billing span — so a
+  // multi-day/catch-up bill is unambiguous for A/P recon.
+  left(`Work period ${inv.period || (fmt(inv.weekStart) + ' – ' + fmt(inv.weekEnd))}`, M, 10, font, SOFT); y -= 22;
 
   // table header
   left('PROJECT', COL.proj, 9, bold, SOFT);
