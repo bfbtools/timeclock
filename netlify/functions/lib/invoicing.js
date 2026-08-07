@@ -194,11 +194,31 @@ export async function deliverWeek({ gen, send, allowTestRoute = false }) {
     seqByProject.set(g.projectId, seq);
   }
 
-  for (const { gc, primarySubId, projectId } of gen.gcInvoices) {
-    // Non-payable internal number `<primary sub #>.<seq>` (e.g. 2058.5 / 2058.6).
-    // Base falls back to the lowest sub number this week, then DEFAULT_START_NO.
-    const base = (primarySubId != null && numberBySub.get(primarySubId))
-      || (subNos.length ? Math.min(...subNos) : DEFAULT_START_NO);
+  // Anchor ALL of a GC's per-project drafts to ONE base number: the sub with the
+  // most hours across that GC's projects this week (Opus → San Ignacio). So every
+  // Opus draft shares the base (2058.5, 2058.6, …) rather than each project picking
+  // its own sub. Falls back to the lowest sub number this week, then DEFAULT_START_NO.
+  const gcBase = new Map(); // gcName -> base whole number
+  {
+    const projIdsByGC = new Map();
+    for (const g of gen.gcInvoices) {
+      if (!projIdsByGC.has(g.gcName)) projIdsByGC.set(g.gcName, new Set());
+      projIdsByGC.get(g.gcName).add(g.projectId);
+    }
+    for (const [gcName, projIds] of projIdsByGC) {
+      let anchor = null, bestHrs = 0;
+      for (const { sub, invoice } of gen.subInvoices) {
+        const hrs = invoice.projects.filter((p) => projIds.has(p.projectId)).reduce((s, p) => s + p.hours, 0);
+        const sid = String(sub.SubID).trim();
+        if (hrs > bestHrs || (hrs === bestHrs && hrs > 0 && anchor !== null && sid < anchor)) { bestHrs = hrs; anchor = sid; }
+      }
+      gcBase.set(gcName, (anchor != null && numberBySub.get(anchor)) || (subNos.length ? Math.min(...subNos) : DEFAULT_START_NO));
+    }
+  }
+
+  for (const { gc, projectId } of gen.gcInvoices) {
+    // Non-payable internal number `<GC anchor sub #>.<seq>` (e.g. 2058.5 / 2058.6).
+    const base = gcBase.get(gc.gcName);
     const invoiceNo = (base * 10 + (seqByProject.get(projectId) || 5)) / 10;
     const to = testTo || acct;
     let status = 'draft', sentTo = to;
