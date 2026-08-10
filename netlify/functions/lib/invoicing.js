@@ -12,7 +12,7 @@ import { buildSubInvoice, buildGCInvoice } from './invoice-lib.js';
 import { etStamp, etParts } from './model.js';
 import { sendEmail } from './email.js';
 import { subInvoicePdf } from './pdf.js';
-import { fileSubInvoicePdf, invoiceFileName } from './need-to-be-processed.js';
+import { invoiceFileName } from './need-to-be-processed.js';
 import { renderSubInvoiceEmail, renderGCInvoiceEmail } from './email-templates.js';
 
 const isY = (v) => String(v).trim().toUpperCase().startsWith('Y');
@@ -161,26 +161,25 @@ export async function deliverWeek({ gen, send, allowTestRoute = false }) {
     const to = testTo ? [testTo] : [acct, sub.Email].filter(Boolean);
     let status = autoSend ? 'sent' : 'draft';
     let sentTo = autoSend ? to.join(', ') : '';
-    let filed; // Drive-filing outcome for a real (non-test) Invoice # send
     if (send && autoSend) {
       try {
         const { subject, html } = renderSubInvoiceEmail(invoice, { invoiceNo, invoiceDate });
         const pdf = await subInvoicePdf(invoice, { invoiceNo, invoiceDate });
         // Name the attached PDF with the BFB bill-processing convention
-        // (YYYY-MM-DD_to_MM-DD_Vendor_Projects_$Total.pdf) so the emailed copy and
-        // the Drive-filed copy share one name and bill processing skips the rename.
+        // (YYYY-MM-DD_to_MM-DD_Vendor_Projects_$Total.pdf). The accounting-side
+        // bill router files this attachment into Need To Be Processed itself
+        // (idempotent by filename), so the timeclock tool does NOT write to Drive
+        // — a single owner avoids two copies under different names. (The old
+        // "handoff 1a" folder write lived here; it silently failed on every run
+        // because its Drive create errored and the result was never logged, so
+        // the invoices only ever reached Drive via the router. Removed 2026-08-10.)
         await sendEmail({ to, subject: subj(subject), html, attachments: [{ filename: invoiceFileName(invoice), content: pdf, contentType: 'application/pdf' }] });
-        // Handoff 1a: file the SAME PDF straight into Need To Be Processed — the
-        // real delivery path (Invoice # sends only; QB/GC drafts below never
-        // file). Non-throwing, so a Drive hiccup can't fail the sent email.
-        // Skipped in test mode so we don't clutter the live folder.
-        if (!testTo) filed = await fileSubInvoicePdf({ pdf, invoice });
       } catch (e) { status = 'error'; sentTo = e.message; }
     }
     // Skip the log in test mode: a row here would make the scheduled run treat
     // the week as already invoiced and skip the real send.
     if (send && !testTo) await logRow('sub', invoice.subId, invoiceNo, invoice.totalHours, invoice.total, status, sentTo, invoice.weekStart, invoice.weekEnd, projNames(invoice));
-    results.push({ type: 'sub', company: sub.CompanyName, invoiceNo, total: invoice.total, status, autoSend, ...(status === 'error' ? { error: sentTo } : {}), ...(filed ? { filed } : {}), ...(testTo ? { testTo } : {}) });
+    results.push({ type: 'sub', company: sub.CompanyName, invoiceNo, total: invoice.total, status, autoSend, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
   }
 
   // GC per-project decimal: use the project's GCDraftSeq (Projects tab) when set,
