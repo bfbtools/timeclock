@@ -125,6 +125,58 @@ test('generateWeekInvoices: ONE GC draft per Opus project, carrying its GCDraftS
   assert.equal(byName['French 1'].projectId, 'P01');
 });
 
+/* ------------------------------------------ company scope (single re-issue) */
+// Fixture: two subs both with hours on an Opus project, so a normal run makes
+// two sub invoices + one GC draft. The company filter must narrow that.
+const scopeFixture = () => ({
+  subs: [
+    { SubID: 'SANIG', CompanyName: 'San Ignacio LLC', HasEmployees: 'Y', DefaultPayRate: '50', AutoInvoice: 'Y', Active: 'Y' },
+    { SubID: 'LOPEZ', CompanyName: 'Lopez Exterior & Interior Construction LLC', HasEmployees: 'Y', DefaultPayRate: '45', AutoInvoice: 'Y', Active: 'Y' },
+  ],
+  workers: [
+    { WorkerID: 'W1', First: 'Fredy', SubID: 'SANIG', Active: 'Y' },
+    { WorkerID: 'W2', First: 'Antony', SubID: 'LOPEZ', Active: 'Y' },
+  ],
+  projects: [{ ProjectID: 'P01', SiteName: 'French 1', Active: 'Y', BillsToGC: 'Y', GCName: 'Opus', GCRate: '68' }],
+  punches: [
+    P('2026-07-06 07:00:00', 'IN', 'P01', 'W1'), P('2026-07-06 15:00:00', 'OUT', 'P01', 'W1'), // SANIG 8h
+    P('2026-07-06 07:00:00', 'IN', 'P01', 'W2'), P('2026-07-06 11:00:00', 'OUT', 'P01', 'W2'), // LOPEZ 4h
+  ],
+  materials: [], weekStart: '2026-07-06',
+});
+
+test('company scope: a sub company → only that sub invoice, no GC, no other sub', () => {
+  const gen = generateWeekInvoices({ ...scopeFixture(), company: 'San Ignacio LLC' });
+  assert.equal(gen.subInvoices.length, 1);
+  assert.equal(gen.subInvoices[0].sub.CompanyName, 'San Ignacio LLC');
+  assert.equal(gen.gcInvoices.length, 0);                       // GC excluded when scoping a sub
+});
+
+test('company scope: match is case/space-insensitive', () => {
+  const gen = generateWeekInvoices({ ...scopeFixture(), company: '  san ignacio llc ' });
+  assert.equal(gen.subInvoices.length, 1);
+  assert.equal(gen.subInvoices[0].sub.CompanyName, 'San Ignacio LLC');
+});
+
+test('company scope: a GC name → only that GC draft, no sub invoices', () => {
+  const gen = generateWeekInvoices({ ...scopeFixture(), company: 'Opus' });
+  assert.equal(gen.subInvoices.length, 0);
+  assert.equal(gen.gcInvoices.length, 1);
+  assert.equal(gen.gcInvoices[0].gc.gcName, 'Opus');
+});
+
+test('company scope: omitted → full week unchanged (two subs + one GC)', () => {
+  const gen = generateWeekInvoices({ ...scopeFixture() });
+  assert.equal(gen.subInvoices.length, 2);
+  assert.equal(gen.gcInvoices.length, 1);
+});
+
+test('company scope: unknown company → nothing (no accidental full-week send)', () => {
+  const gen = generateWeekInvoices({ ...scopeFixture(), company: 'Nobody Inc' });
+  assert.equal(gen.subInvoices.length, 0);
+  assert.equal(gen.gcInvoices.length, 0);
+});
+
 /* --------------------------------------------- sub email scan-times read-out */
 test('sub invoice read-out: ACTUAL (unrounded) scan times, 0-hour junk dropped', () => {
   const sub = { SubID: 'S1', CompanyName: 'Diego', DefaultPayRate: '50' };

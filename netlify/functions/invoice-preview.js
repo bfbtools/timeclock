@@ -1,9 +1,18 @@
-// GET /api/invoice-preview?token=...&week=YYYY-MM-DD&send=0
+// GET /api/invoice-preview?token=...&week=YYYY-MM-DD&send=0&company=...
 // Admin-only. Dry-runs the week's invoicing so Adrienne can see exactly what
-// the weekly job WOULD generate (totals, who auto-sends, GC/QB drafts) before
-// it fires — and can trigger a real run on demand with &send=1 (e.g. to pull a
-// SnowPeak draft or re-run a week). Gated by ADMIN_TOKEN so financials aren't
-// public. Defaults to the most recently completed Mon–Sun week.
+// the weekly job WOULD generate (totals, who auto-sends) before it fires — and
+// can trigger a real run on demand with &send=1 (e.g. to re-issue one corrected
+// company). Gated by ADMIN_TOKEN so financials aren't public. Defaults to the
+// most recently completed Mon–Sun week.
+//
+//   &company=San Ignacio LLC  → scope to ONE company: only that sub invoice is
+//     generated/sent, so re-issuing a corrected sub doesn't also re-send every
+//     other sub (the "duplicate Lopez" bug). Omit for the full week (the
+//     scheduled Monday run is unaffected). Matches subInvoices[].company.
+//
+// GC (Opus) drafts are NO LONGER emailed — Slab owns them. This endpoint returns
+// each GC draft's full per-day detail (`gcInvoices[]`) so Slab can render it and
+// let Adrienne adjust the rate + lunch before sending.
 
 import { json, query, guard } from './lib/http.js';
 import { etParts } from './lib/model.js';
@@ -17,18 +26,35 @@ export default guard(async (req) => {
 
   const weekStart = query(req, 'week') || targetWeekStart(etParts().date);
   const send = query(req, 'send') === '1';
+  const company = query(req, 'company') || '';
 
   const data = await fetchWeekData(weekStart);
-  const gen = generateWeekInvoices({ ...data, weekStart });
+  const gen = generateWeekInvoices({ ...data, weekStart, company });
   // allowTestRoute: this manual endpoint honors TEST_INVOICE_EMAIL (routes to the
   // test address). The scheduled run does not, so it always emails real subs.
+  // Only SUB invoices are sent here; GC drafts are returned as data for Slab.
   const results = await deliverWeek({ gen, send, allowTestRoute: true }); // send=false → dry run
 
   return json(200, {
-    ok: true, dryRun: !send, weekStart, weekEnd: data.weekEnd,
+    ok: true, dryRun: !send, weekStart, weekEnd: data.weekEnd, company: company || null,
     counts: { sub: gen.subInvoices.length, gc: gen.gcInvoices.length },
     subInvoices: gen.subInvoices.map((s) => ({ company: s.sub.CompanyName, total: s.invoice.total, autoSend: s.autoSend, independent: s.independent })),
-    gcInvoices: gen.gcInvoices.map((g) => ({ gc: g.gc.gcName, lunchHours: g.gc.lunchHours, total: g.gc.total })),
+    // Full GC detail for Slab: per-day lines (item, rate, hours, amount, onsite),
+    // net totalHours + lunchHours (gross = the two summed), and the pieces Slab
+    // uses to number the draft (`<primarySubId's #>.<gcDraftSeq>`) and to re-cost
+    // it under an adjusted rate/lunch.
+    gcInvoices: gen.gcInvoices.map((g) => ({
+      gc: g.gc.gcName,
+      project: g.gc.project,
+      primarySubId: g.primarySubId,
+      gcDraftSeq: g.gcDraftSeq,
+      period: g.gc.period,
+      costCode: g.gc.costCode,
+      lunchHours: g.gc.lunchHours,
+      totalHours: g.gc.totalHours,
+      total: g.gc.total,
+      days: g.gc.days,
+    })),
     results,
   });
 });

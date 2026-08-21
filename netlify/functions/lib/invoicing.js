@@ -13,10 +13,11 @@ import { etStamp, etParts } from './model.js';
 import { sendEmail } from './email.js';
 import { subInvoicePdf } from './pdf.js';
 import { invoiceFileName } from './need-to-be-processed.js';
-import { renderSubInvoiceEmail, renderGCInvoiceEmail } from './email-templates.js';
+import { renderSubInvoiceEmail } from './email-templates.js';
 
 const isY = (v) => String(v).trim().toUpperCase().startsWith('Y');
 const active = (r) => isY(r.Active);
+const norm = (s) => String(s || '').trim().toLowerCase();
 // First invoice number for a sub with no configured StartInvoiceNo.
 const DEFAULT_START_NO = 1001;
 
@@ -54,7 +55,12 @@ export async function fetchWeekData(weekStart) {
   };
 }
 
-export function generateWeekInvoices({ subs, workers, projects, punches, materials, weekStart }) {
+// `company` (optional): scope the run to ONE company for a manual re-issue via
+// /api/invoice-preview. Matches a sub's CompanyName (→ just that sub invoice) OR
+// a GC name like "Opus" (→ just that GC's drafts). Omitted = the full week, so
+// the scheduled Monday run is unaffected. Prevents re-issuing one corrected
+// company from regenerating/re-sending every other company's invoice.
+export function generateWeekInvoices({ subs, workers, projects, punches, materials, weekStart, company }) {
   const workersById = {};
   workers.forEach((w) => { workersById[String(w.WorkerID).trim()] = w; });
   const projectsById = {};
@@ -89,6 +95,15 @@ export function generateWeekInvoices({ subs, workers, projects, punches, materia
     if (gc.total > 0) {
       gcInvoices.push({ gcName, projectId: gc.project.id, gc, primarySubId: primarySubForGC(gc, subInvoices), gcDraftSeq: num(p.GCDraftSeq) });
     }
+  }
+
+  if (company && norm(company)) {
+    const want = norm(company);
+    return {
+      weekStart,
+      subInvoices: subInvoices.filter((s) => norm(s.sub.CompanyName) === want),
+      gcInvoices: gcInvoices.filter((g) => norm(g.gcName) === want),
+    };
   }
 
   return { weekStart, subInvoices, gcInvoices };
@@ -140,7 +155,6 @@ export async function deliverWeek({ gen, send, allowTestRoute = false }) {
   for (const { invoice, sub } of gen.subInvoices) {
     numberBySub.set(String(invoice.subId), nextSubNumber(sub, logRows));
   }
-  const subNos = [...numberBySub.values()].filter((n) => Number.isFinite(n));
 
   const results = [];
   let seq = 0;
@@ -182,53 +196,12 @@ export async function deliverWeek({ gen, send, allowTestRoute = false }) {
     results.push({ type: 'sub', company: sub.CompanyName, invoiceNo, total: invoice.total, status, autoSend, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
   }
 
-  // GC per-project decimal: use the project's GCDraftSeq (Projects tab) when set,
-  // else fill the next free slot 5..9 in a stable order — so each project's draft is
-  // predictable (French 1=.5, French 2=.6, …).
-  const usedSeq = new Set(gen.gcInvoices.map((g) => g.gcDraftSeq).filter((s) => Number.isInteger(s)));
-  let fill = 5;
-  const seqByProject = new Map();
-  for (const g of [...gen.gcInvoices].sort((a, b) => (a.gcDraftSeq ?? 99) - (b.gcDraftSeq ?? 99) || String(a.gc.project.name).localeCompare(String(b.gc.project.name)))) {
-    const seq = Number.isInteger(g.gcDraftSeq) ? g.gcDraftSeq : (() => { while (usedSeq.has(fill)) fill += 1; usedSeq.add(fill); return fill; })();
-    seqByProject.set(g.projectId, seq);
-  }
-
-  // Anchor ALL of a GC's per-project drafts to ONE base number: the sub with the
-  // most hours across that GC's projects this week (Opus → San Ignacio). So every
-  // Opus draft shares the base (2058.5, 2058.6, …) rather than each project picking
-  // its own sub. Falls back to the lowest sub number this week, then DEFAULT_START_NO.
-  const gcBase = new Map(); // gcName -> base whole number
-  {
-    const projIdsByGC = new Map();
-    for (const g of gen.gcInvoices) {
-      if (!projIdsByGC.has(g.gcName)) projIdsByGC.set(g.gcName, new Set());
-      projIdsByGC.get(g.gcName).add(g.projectId);
-    }
-    for (const [gcName, projIds] of projIdsByGC) {
-      let anchor = null, bestHrs = 0;
-      for (const { sub, invoice } of gen.subInvoices) {
-        const hrs = invoice.projects.filter((p) => projIds.has(p.projectId)).reduce((s, p) => s + p.hours, 0);
-        const sid = String(sub.SubID).trim();
-        if (hrs > bestHrs || (hrs === bestHrs && hrs > 0 && anchor !== null && sid < anchor)) { bestHrs = hrs; anchor = sid; }
-      }
-      gcBase.set(gcName, (anchor != null && numberBySub.get(anchor)) || (subNos.length ? Math.min(...subNos) : DEFAULT_START_NO));
-    }
-  }
-
-  for (const { gc, projectId } of gen.gcInvoices) {
-    // Non-payable internal number `<GC anchor sub #>.<seq>` (e.g. 2058.5 / 2058.6).
-    const base = gcBase.get(gc.gcName);
-    const invoiceNo = (base * 10 + (seqByProject.get(projectId) || 5)) / 10;
-    const to = testTo || acct;
-    let status = 'draft', sentTo = to;
-    if (send) {
-      try { const { subject, html } = renderGCInvoiceEmail(gc, { invoiceNo, invoiceDate }); await sendEmail({ to, subject: subj(subject), html }); }
-      catch (e) { status = 'error'; sentTo = e.message; }
-      if (!testTo) await logRow('GC', gc.gcName, invoiceNo, gc.totalHours, gc.total, status, sentTo, gc.weekStart, gc.weekEnd, gc.project.name);
-    }
-    results.push({ type: 'GC', gc: gc.gcName, project: gc.project.name, invoiceNo, total: gc.total, status, ...(status === 'error' ? { error: sentTo } : {}), ...(testTo ? { testTo } : {}) });
-  }
-
+  // GC (Opus) drafts are NO LONGER emailed here (2026-08-21). They were always
+  // internal review-only drafts to accounting@; Slab now owns them — it reads the
+  // per-project GC detail from /api/invoice-preview and lets Adrienne adjust the
+  // rate + lunch before sending. deliverWeek only sends the SUB invoices; the GC
+  // numbering (`<sub #>.<seq>`) is derived on the Slab side from each GC's
+  // primarySubId + gcDraftSeq, which the preview response exposes.
   return results;
 }
 
