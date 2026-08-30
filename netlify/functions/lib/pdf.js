@@ -84,8 +84,8 @@ export async function subInvoicePdf(inv, meta = {}) {
     right('Subtotal', COL.rateR, 10, bold, SOFT);
     right(money(pre), COL.amtR, 10, font, SOFT);
     y -= 16;
-    left('Guaranteed Day Uplift', COL.proj, 10, bold);
-    left(`+${inv.guaranteedDayHours} hr guaranteed day`, COL.dates, 9, font, SOFT);
+    left('Guaranteed 10-Hour Days', COL.proj, 10, bold);
+    left(`+${inv.guaranteedDayHours} hr`, COL.dates, 9, font, SOFT);
     right(money(inv.guaranteedDayAmount), COL.amtR, 10);
     y -= 8; rule(); y -= 16;
   }
