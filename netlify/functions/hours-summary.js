@@ -10,6 +10,7 @@ import { readTab } from './lib/sheets.js';
 import { TABS } from './lib/config.js';
 import { etToday } from './lib/model.js';
 import { workerDays, mondayOf } from './lib/rollup.js';
+import { subGuarantee, creditWorker } from './lib/dayrate.js';
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -19,12 +20,14 @@ export function summarize({ workers, projects, punches, subs, from, to, today })
   const projName = {};
   projects.forEach((p) => { projName[String(p.ProjectID).trim()] = p.SiteName || String(p.ProjectID).trim(); });
   const subName = {};
-  subs.forEach((s) => { subName[String(s.SubID).trim()] = s.CompanyName || ''; });
+  const subById = {};
+  subs.forEach((s) => { const id = String(s.SubID).trim(); subName[id] = s.CompanyName || ''; subById[id] = s; });
   const wMeta = {};
   workers.forEach((w) => {
+    const subId = String(w.SubID).trim();
     wMeta[String(w.WorkerID).trim()] = {
       name: (w.Nickname && String(w.Nickname).trim()) || w.First || String(w.WorkerID).trim(),
-      sub: subName[String(w.SubID).trim()] || '',
+      sub: subName[subId] || '', subId,
     };
   });
 
@@ -40,6 +43,7 @@ export function summarize({ workers, projects, punches, subs, from, to, today })
   const perWorker = [];
   const issues = [];
   const shifts = []; // one row per worker shift: paired in→out, plus broken (unpaired) rows
+  const credit = []; // Guaranteed Day: per-worker-per-day credit rows (additive; §4b)
   let totalHours = 0;
 
   const pName = (pid) => projName[String(pid || '').trim()] || '';
@@ -109,6 +113,23 @@ export function summarize({ workers, projects, punches, subs, from, to, today })
         });
       });
     }
+    // Guaranteed Day credit rows (§4b) — additive; shifts[] and actual clocked
+    // hours are never touched. Only for workers whose sub has the policy ON; the
+    // per-job `byJob` split sums exactly to each day's uplift (Q4).
+    const rule = subGuarantee(subById[wm.subId]);
+    if (rule) {
+      const rangeDays = Object.keys(days).filter(inRange).sort()
+        .map((date) => ({ date, intervals: days[date].intervals }));
+      for (const r of creditWorker({ days: rangeDays, rule }).rows) {
+        if (r.billable <= 0 && r.clocked <= 0) continue; // skip pure-issue days (no worked interval)
+        credit.push({
+          date: r.date, workerId: wid, name: wm.name || wid, sub: wm.sub || '',
+          clocked: r.clocked, billable: r.billable, credited: r.credited, uplift: r.uplift,
+          qualified: r.qualified, byJob: r.byJob,
+          rule: { hours: rule.hours, min: rule.min, basis: 'clocked' },
+        });
+      }
+    }
     if (wHours > 0 || Object.keys(wByProject).length) {
       wHours = round2(wHours);
       totalHours = round2(totalHours + wHours);
@@ -127,9 +148,10 @@ export function summarize({ workers, projects, punches, subs, from, to, today })
     || String(a.inAt || a.outAt).localeCompare(b.inAt || b.outAt));
   // subs that actually have punches this range, for the table tabs
   const subsList = [...new Set(shifts.map((s) => s.sub).filter(Boolean))].sort();
+  credit.sort((a, b) => String(a.date).localeCompare(b.date) || String(a.name).localeCompare(b.name));
 
   return {
-    ok: true, from, to, today, totalHours, perProject, perWorker, issues, shifts, subs: subsList,
+    ok: true, from, to, today, totalHours, perProject, perWorker, issues, shifts, credit, subs: subsList,
     counts: {
       workers: perWorker.length,
       projects: perProject.length,

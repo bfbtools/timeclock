@@ -38,7 +38,22 @@ export default guard(async (req) => {
   return json(200, {
     ok: true, dryRun: !send, weekStart, weekEnd: data.weekEnd, company: company || null,
     counts: { sub: gen.subInvoices.length, gc: gen.gcInvoices.length },
-    subInvoices: gen.subInvoices.map((s) => ({ company: s.sub.CompanyName, total: s.invoice.total, autoSend: s.autoSend, independent: s.independent })),
+    // Guaranteed Day (SUB_DAY_RATE_HANDOFF §9): emit the pieces on EVERY sub —
+    // laborTotal + materialsTotal + guaranteedDayAmount = total. `guaranteedDayOn`
+    // separates "no policy" (Lopez) from "policy on, nobody fell short" (both 0).
+    // `guaranteedDayByProject` is the authoritative per-job split (sums to hours).
+    subInvoices: gen.subInvoices.map((s) => ({
+      company: s.sub.CompanyName,
+      laborTotal: s.invoice.laborTotal,
+      materialsTotal: s.invoice.materialsTotal,
+      guaranteedDayOn: s.invoice.guaranteedDayOn,
+      guaranteedDayHours: s.invoice.guaranteedDayHours,
+      guaranteedDayAmount: s.invoice.guaranteedDayAmount,
+      guaranteedDayByProject: s.invoice.guaranteedDayByProject,
+      total: s.invoice.total,
+      autoSend: s.autoSend,
+      independent: s.independent,
+    })),
     // Full GC detail for Slab: per-day lines (item, rate, hours, amount, onsite),
     // net totalHours + lunchHours (gross = the two summed), and the pieces Slab
     // uses to number the draft (`<primarySubId's #>.<gcDraftSeq>`) and to re-cost

@@ -75,6 +75,21 @@ export async function subInvoicePdf(inv, meta = {}) {
     y -= 8; rule(); y -= 16;
   }
 
+  // Guaranteed Day uplift (SUB_DAY_RATE_HANDOFF): the ONLY invoice that reaches
+  // the sub, so the uplift must show here — a pre-uplift subtotal, the uplift as
+  // its own line (hours + dollars), then the adjusted TOTAL DUE. Rendered only
+  // when there is an uplift, so ordinary invoices are unchanged.
+  if (inv.guaranteedDayOn && inv.guaranteedDayAmount > 0) {
+    const pre = Math.round((inv.laborTotal + inv.materialsTotal + Number.EPSILON) * 100) / 100;
+    right('Subtotal', COL.rateR, 10, bold, SOFT);
+    right(money(pre), COL.amtR, 10, font, SOFT);
+    y -= 16;
+    left('Guaranteed Day Uplift', COL.proj, 10, bold);
+    left(`+${inv.guaranteedDayHours} hr guaranteed day`, COL.dates, 9, font, SOFT);
+    right(money(inv.guaranteedDayAmount), COL.amtR, 10);
+    y -= 8; rule(); y -= 16;
+  }
+
   y -= 4;
   right('TOTAL', COL.rateR, 12, bold);
   right(money(inv.total), COL.amtR, 12, bold);

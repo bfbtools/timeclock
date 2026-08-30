@@ -71,6 +71,7 @@ export function renderSubInvoiceEmail(inv, meta = {}) {
     <div style="font-size:16px;font-weight:bold">${inv.company}</div>
     <div style="font-size:13px;color:${C.soft};margin-top:2px">Invoice #${invNo}${meta.invoiceDate ? ' • ' + fmtLong(meta.invoiceDate) : ''}${inv.period ? ' • work period ' + inv.period : ''} • Due on receipt</div>
     <div style="font-size:14px;margin-top:10px">The invoice for <b>${(inv.projectNames || []).join(', ')}</b> is attached as a PDF. Total <b>${money(inv.total)}</b>.</div>
+    ${inv.guaranteedDayOn && inv.guaranteedDayAmount > 0 ? `<div style="font-size:12px;color:${C.soft};margin-top:6px">Includes a guaranteed-day uplift of ${inv.guaranteedDayHours} hr (${money(inv.guaranteedDayAmount)}) — days of 8.5+ clocked hours are paid at 10. Itemized on the attached PDF.</div>` : ''}
   </div>`;
   return {
     subject: `Invoice #${invNo} — ${inv.company} — ${inv.period || fmt(inv.weekStart)}`,

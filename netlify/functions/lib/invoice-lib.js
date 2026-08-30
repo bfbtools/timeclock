@@ -6,6 +6,7 @@
 // No lunch deduction here — lunch applies only to the GC invoice (Step 5).
 
 import { num, weekRange, summarizeWorkerWeek, projectHoursQuarter } from './rollup.js';
+import { subGuarantee, creditWorker } from './dayrate.js';
 import { LUNCH_HOURS, QB_RATE, COST_CODE_GC } from './config.js';
 
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -53,12 +54,29 @@ export function buildSubInvoice({ sub, workers, punches, materials = [], project
   const workerLines = [];
   const readout = []; // per worker: ACTUAL (unrounded) scan times for the email read-out
 
+  // Guaranteed Day (SUB_DAY_RATE_HANDOFF.md): a per-sub floor on paid hours,
+  // applied to the SUB invoice only. subGuarantee returns null unless this sub
+  // has it configured ON (San Ignacio) — so every other sub is untouched.
+  const rule = subGuarantee(sub);
+  let upliftHours = 0, upliftAmount = 0;
+  const upliftByProject = new Map(); // projectId -> Σ uplift hours (sums to upliftHours)
+
   for (const w of workers) {
     const s = summarizeWorkerWeek({
       worker: w, sub, weekStartMonday: weekStart,
       punches: byWorker.get(String(w.WorkerID).trim()) || [],
     });
     s.flags.forEach((f) => flags.push({ worker: nameOf(w), ...f }));
+
+    // Guaranteed-day credit for this worker's week (no-op when rule is null).
+    // Uplift dollars use THIS worker's pay rate; per-project split sums exactly
+    // to the worker's uplift hours, so the sub totals stay penny-consistent.
+    if (rule) {
+      const cw = creditWorker({ days: s.days, rule });
+      upliftHours = round2(upliftHours + cw.upliftHours);
+      upliftAmount = round2(upliftAmount + round2(cw.upliftHours * s.payRate));
+      for (const [pid, h] of Object.entries(cw.byProject)) upliftByProject.set(pid, round2((upliftByProject.get(pid) || 0) + h));
+    }
 
     // Actual scan times (unrounded) — raw in/out per shift, 0-hour mis-punches
     // dropped. The email shows this as the true record behind the rounded invoice.
@@ -115,6 +133,13 @@ export function buildSubInvoice({ sub, workers, punches, materials = [], project
   }));
   const materialsTotal = round2(mats.reduce((s, m) => s + m.amount, 0));
 
+  // Per-job uplift split (Q4) — sums EXACTLY to guaranteedDayHours. Slab consumes
+  // this and falls back to its own allocator only when the field is absent.
+  const guaranteedDayByProject = [...upliftByProject.entries()]
+    .filter(([, h]) => h > 0)
+    .map(([pid, hours]) => ({ projectId: pid, name: (projectsById[pid] && projectsById[pid].SiteName) || pid, hours: round2(hours) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   const { workStart, workEnd } = workedSpan(roster, weekStart, end);
   // Sub's own contact block for the PDF, from optional Subs-tab columns.
   const g = (k) => (sub && sub[k] != null ? String(sub[k]).trim() : '');
@@ -135,7 +160,13 @@ export function buildSubInvoice({ sub, workers, punches, materials = [], project
     projectNames: projects.map((p) => p.name),
     totalHours: round2(projects.reduce((s, p) => s + p.hours, 0)),
     materials: mats, materialsTotal,
-    total: round2(laborTotal + materialsTotal),
+    // Guaranteed Day (§9): uplift comes off LABOR only; total folds it in.
+    guaranteedDayOn: !!rule,
+    guaranteedDayHours: round2(upliftHours),
+    guaranteedDayAmount: round2(upliftAmount),
+    guaranteedDayByProject,
+    guaranteedDayPolicy: rule ? { hours: rule.hours, min: rule.min, from: rule.from } : null,
+    total: round2(laborTotal + materialsTotal + upliftAmount),
     days: rosterDays(roster),
     flags,
   };

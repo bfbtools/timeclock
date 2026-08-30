@@ -253,6 +253,11 @@ export default guard(async (req) => {
         defaultPayRate: (s.DefaultPayRate === '' || s.DefaultPayRate == null) ? '' : s.DefaultPayRate,
         hasEmployees: String(s.HasEmployees || '').trim().toUpperCase() === 'Y',
         active: String(s.Active || '').trim().toUpperCase() === 'Y',
+        // Guaranteed Day policy (SUB_DAY_RATE_HANDOFF §4a).
+        guaranteedDayOn: ['TRUE', 'Y', 'YES', '1', 'ON'].includes(String(s.GuaranteedDayOn || '').trim().toUpperCase()),
+        guaranteedDayHours: (s.GuaranteedDayHours === '' || s.GuaranteedDayHours == null) ? '' : s.GuaranteedDayHours,
+        guaranteedDayMin: (s.GuaranteedDayMin === '' || s.GuaranteedDayMin == null) ? '' : s.GuaranteedDayMin,
+        guaranteedDayFrom: String(s.GuaranteedDayFrom || '').trim(),
       }));
     return json(200, { ok: true, op, count: subs.length, subs });
   }
@@ -270,6 +275,33 @@ export default guard(async (req) => {
     if (!s) return json(404, { ok: false, error: 'Sub not found' });
     await updateRow(TABS.SUBS, s._rowNumber, { DefaultPayRate: rawRate });
     return json(200, { ok: true, op, subId, defaultPayRate: rawRate });
+  }
+
+  // set-sub-guarantee — the "Guaranteed Day" policy for a sub (SUB_DAY_RATE_HANDOFF
+  //   §4a). Per sub, inherited by all its workers; the invoice generator reads it.
+  //   Refuses bad input rather than coercing.  { op:'set-sub-guarantee', subId, on,
+  //   hours, min, from, editedBy }
+  if (op === 'set-sub-guarantee') {
+    const subId = String(b.subId || '').trim();
+    if (!subId) return json(400, { ok: false, error: 'subId required' });
+    const on = b.on === true || ['true', 'y', 'yes', '1', 'on'].includes(String(b.on).trim().toLowerCase());
+    const hours = Number(b.hours);
+    const min = Number(b.min);
+    const from = String(b.from || '').trim();
+    if (on) {
+      if (!(Number.isFinite(hours) && hours >= 0 && hours <= 24)) return json(400, { ok: false, error: 'hours must be a number 0–24' });
+      if (!(Number.isFinite(min) && min >= 0 && min <= 24)) return json(400, { ok: false, error: 'min must be a number 0–24' });
+      if (min > hours) return json(400, { ok: false, error: 'min cannot exceed hours — a rule that could never pay anybody' });
+    }
+    if (from && !/^\d{4}-\d{2}-\d{2}$/.test(from)) return json(400, { ok: false, error: 'from must be YYYY-MM-DD or empty' });
+    const { rows } = await readTab(TABS.SUBS);
+    const s = rows.find((r) => String(r.SubID || '').trim() === subId);
+    if (!s) return json(404, { ok: false, error: 'Sub not found' });
+    const patch = { GuaranteedDayOn: on ? 'TRUE' : 'FALSE', GuaranteedDaySetAt: etStamp() };
+    if (on) { patch.GuaranteedDayHours = hours; patch.GuaranteedDayMin = min; patch.GuaranteedDayFrom = from; }
+    else if ('from' in b) patch.GuaranteedDayFrom = from;
+    await updateRow(TABS.SUBS, s._rowNumber, patch);
+    return json(200, { ok: true, op, subId, guaranteedDayOn: on, guaranteedDayHours: on ? hours : '', guaranteedDayMin: on ? min : '', guaranteedDayFrom: on ? from : (patch.GuaranteedDayFrom ?? '') });
   }
 
   // get-pin — reveal ONE worker's PIN for the office (admin-gated). PINs are plaintext

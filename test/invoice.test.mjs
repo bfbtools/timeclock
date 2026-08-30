@@ -114,3 +114,49 @@ test('QB invoice: Carpentry at $50, General Labor for override workers, no lunch
   assert.equal(qb.totalHours, 12);
   assert.equal(qb.total, 540);
 });
+
+/* ------------------------------------------------ Guaranteed Day (sub floor) */
+const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+const SANIG_G = { SubID: 'SANIG', CompanyName: 'San Ignacio LLC', DefaultPayRate: '50', GuaranteedDayOn: 'TRUE', GuaranteedDayHours: '10', GuaranteedDayMin: '8.5' };
+const W1 = [{ WorkerID: 'W1', First: 'Fredy', SubID: 'SANIG' }];
+
+test('guaranteed day: an 8.5 h clocked day is credited 10 and folds into total', () => {
+  const punches = [P('2026-07-06 07:00:00', 'IN', 'PRJ_A'), P('2026-07-06 15:30:00', 'OUT', 'PRJ_A')]; // 8.5 h
+  const inv = buildSubInvoice({ sub: SANIG_G, workers: W1, punches, weekStart: '2026-07-06' });
+  assert.equal(inv.laborTotal, 425);           // 8.5 × 50, pre-uplift
+  assert.equal(inv.guaranteedDayOn, true);
+  assert.equal(inv.guaranteedDayHours, 1.5);   // 10 − 8.5
+  assert.equal(inv.guaranteedDayAmount, 75);   // 1.5 × 50
+  assert.equal(inv.total, 500);                // 425 + 75, uplift off LABOR only
+  assert.deepEqual(inv.guaranteedDayByProject, [{ projectId: 'PRJ_A', name: 'PRJ_A', hours: 1.5 }]);
+});
+
+test('guaranteed day: cross-job uplift split sums EXACTLY to the uplift', () => {
+  const punches = [
+    P('2026-07-06 07:00:00', 'IN', 'PRJ_A'), P('2026-07-06 11:00:00', 'OUT', 'PRJ_A'), // 4.00 h
+    P('2026-07-06 11:00:00', 'IN', 'PRJ_B'), P('2026-07-06 15:36:00', 'OUT', 'PRJ_B'), // 4.60 h → 4.50 billable
+  ];
+  const inv = buildSubInvoice({ sub: SANIG_G, workers: W1, punches, weekStart: '2026-07-06' });
+  assert.equal(inv.guaranteedDayHours, 1.5);
+  const split = Object.fromEntries(inv.guaranteedDayByProject.map((x) => [x.projectId, x.hours]));
+  assert.deepEqual(split, { PRJ_A: 0.71, PRJ_B: 0.79 });
+  assert.equal(round2(split.PRJ_A + split.PRJ_B), inv.guaranteedDayHours); // sums exactly
+});
+
+test('guaranteed day: a day UNDER the clocked threshold pays actual, no uplift', () => {
+  const punches = [P('2026-07-06 07:00:00', 'IN', 'PRJ_A'), P('2026-07-06 11:00:00', 'OUT', 'PRJ_A')]; // 4 h
+  const inv = buildSubInvoice({ sub: SANIG_G, workers: W1, punches, weekStart: '2026-07-06' });
+  assert.equal(inv.guaranteedDayOn, true);      // policy is on...
+  assert.equal(inv.guaranteedDayHours, 0);      // ...but nobody qualified
+  assert.equal(inv.total, 200);
+});
+
+test('guaranteed day: a sub with NO policy is untouched (Lopez)', () => {
+  const lopez = { SubID: 'LOPEZ', CompanyName: 'Lopez', DefaultPayRate: '45' };
+  const punches = [P('2026-07-06 07:00:00', 'IN', 'PRJ_A', 'L1'), P('2026-07-06 17:00:00', 'OUT', 'PRJ_A', 'L1')]; // 10 h
+  const inv = buildSubInvoice({ sub: lopez, workers: [{ WorkerID: 'L1', First: 'Carlito', SubID: 'LOPEZ' }], punches, weekStart: '2026-07-06' });
+  assert.equal(inv.guaranteedDayOn, false);
+  assert.equal(inv.guaranteedDayHours, 0);
+  assert.equal(inv.guaranteedDayAmount, 0);
+  assert.equal(inv.total, 450);                 // 10 × 45, unchanged
+});
