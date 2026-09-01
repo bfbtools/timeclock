@@ -36,7 +36,7 @@ const M = CX + PAD;                   // content left
 const RIGHT = CX + CW - PAD;          // content right
 const R = 14;                         // corner radius
 const HEADER_H = 74;
-const COL = { hoursR: 424, rateR: 500, amtR: RIGHT };
+const COL = { rateR: 424, hoursR: 500, amtR: RIGHT };  // order: DATE/ITEM · RATE · HOURS · AMOUNT
 
 const roundedRect = (w, h, r) => `M ${r} 0 H ${w - r} Q ${w} 0 ${w} ${r} V ${h - r} Q ${w} ${h} ${w - r} ${h} H ${r} Q 0 ${h} 0 ${h - r} V ${r} Q 0 0 ${r} 0 Z`;
 const roundedTop = (w, h, r) => `M 0 ${r} Q 0 0 ${r} 0 H ${w - r} Q ${w} 0 ${w} ${r} V ${h} H 0 Z`;
@@ -67,12 +67,14 @@ export async function gcInvoicePdf(inv, meta = {}) {
   };
   const colHead = () => {
     left('DATE / ITEM', M, 9, bold, SOFT);
-    right('HOURS', COL.hoursR, 9, bold, SOFT);
     right('RATE', COL.rateR, 9, bold, SOFT);
+    right('HOURS', COL.hoursR, 9, bold, SOFT);
     right('AMOUNT', COL.amtR, 9, bold, SOFT);
     y -= 8; page.drawLine({ start: { x: M, y }, end: { x: RIGHT, y }, thickness: 1, color: INK }); y -= 16;
   };
-  const need = (h) => { if (y - h < CM + PAD) { chrome(); colHead(); } };
+  // head=false: a page break for the TOTAL/note must NOT redraw the column
+  // headers (that produced a page 2 with headings and no rows).
+  const need = (h, head = true) => { if (y - h < CM + PAD) { chrome(); if (head) colHead(); } };
 
   chrome();
   left(inv.gcName || 'GC', M, 15, bold, INK);
@@ -82,7 +84,9 @@ export async function gcInvoicePdf(inv, meta = {}) {
 
   for (const p of inv.projects || []) {
     need(36);
-    left(p.name, M, 11, bold, GREEN); y -= 16;
+    left(p.name, M, 11, bold, GREEN);
+    if (p.invoiceNo) left(`·  #${p.invoiceNo}`, M + bold.widthOfTextAtSize(p.name, 11) + 10, 9.5, font, SOFT);
+    y -= 16;
     for (const d of p.days || []) {
       for (const l of d.lines || []) {
         need(31);
@@ -98,14 +102,14 @@ export async function gcInvoicePdf(inv, meta = {}) {
     }
   }
 
-  need(30); y -= 6;
+  need(30, false); y -= 6;
   const amt = money(inv.total);
   right('TOTAL', COL.amtR - bold.widthOfTextAtSize(amt, 13) - 20, 13, bold);
   right(amt, COL.amtR, 13, bold);
   y -= 30;
 
   if (inv.note) {
-    need(50);
+    need(50, false);
     for (const ln of wrap('Note: ' + inv.note, font, 8.5, RIGHT - M)) { left(ln, M, 8.5, font, SOFT); y -= 12; }
   }
 

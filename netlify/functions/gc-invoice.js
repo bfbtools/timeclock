@@ -42,19 +42,27 @@ export default guard(async (req) => {
 
   // Final line items per project through the shared allocator (lunch reallocation
   // over the GC-rate pool + per-line rate overrides), then combine into one doc.
+  // Each project keeps its OWN number `<base>.<gcDraftSeq>` (French 1 .5 / French 2
+  // .6) on its section heading — Slab sends `no` from the first bill only.
+  const no = query(req, 'no') || '';
+  const baseNo = no.split('.')[0];
   let total = 0;
   const projects = gcs
     .sort((a, b) => (a.gcDraftSeq ?? 99) - (b.gcDraftSeq ?? 99) || String(a.gc.project.name).localeCompare(String(b.gc.project.name)))
     .map((g) => {
       const c = GCB.compute(g.gc, adj[g.projectId] || {});
       total += c.total;
-      return { name: g.gc.project.name, days: c.days.map((d) => ({ date: d.date, lines: d.lines })) };
+      return {
+        name: g.gc.project.name,
+        invoiceNo: (baseNo && Number.isInteger(g.gcDraftSeq)) ? `${baseNo}.${g.gcDraftSeq}` : '',
+        days: c.days.map((d) => ({ date: d.date, lines: d.lines })),
+      };
     });
 
   const g0 = gcs[0].gc;
   const pdf = await gcInvoicePdf({
     gcName: company,
-    invoiceNo: query(req, 'no') || '',
+    invoiceNo: no,
     costCode: g0.costCode || COST_CODE_GC,
     period: `${fullYear(g0.workStart)} – ${fullYear(g0.workEnd)}`,
     projects,
