@@ -4,8 +4,9 @@
 // slab-gcbill module — one allocator, no drift with Slab. It NEVER sends, logs,
 // or writes Drive; Slab files the returned bytes.
 //
-// Pre-August floor: an adjustment for a week starting before 2026-08-01 is
-// refused (those weeks are settled). An unadjusted generate is allowed.
+// Pre-August floor: a week starting before 2026-08-01 is refused ENTIRELY —
+// those weeks are settled (and a fresh draft would not match what BT billed
+// Opus, e.g. 07-13 BT $27,193.60 vs draft $24,623.20), so we never re-emit them.
 import { query, guard, json } from './lib/http.js';
 import { etParts } from './lib/model.js';
 import { targetWeekStart, fetchWeekData, generateWeekInvoices } from './lib/invoicing.js';
@@ -25,13 +26,13 @@ export default guard(async (req) => {
   const company = (query(req, 'company') || '').trim();
   if (!company) return json(400, { ok: false, error: 'company (GC name) required' });
 
+  if (weekStart < ADJ_FLOOR) {
+    return json(400, { ok: false, error: `Weeks before ${ADJ_FLOOR} are frozen and cannot be generated here (week ${weekStart}).` });
+  }
   let adj = {};
   const rawAdj = query(req, 'adj');
   if (rawAdj) {
     try { adj = JSON.parse(rawAdj); } catch { return json(400, { ok: false, error: 'adj must be valid JSON' }); }
-    if (Object.keys(adj).length && weekStart < ADJ_FLOOR) {
-      return json(400, { ok: false, error: `Adjustments are frozen before ${ADJ_FLOOR}; week ${weekStart} cannot be re-adjusted.` });
-    }
   }
 
   const data = await fetchWeekData(weekStart);
