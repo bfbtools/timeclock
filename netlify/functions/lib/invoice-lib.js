@@ -209,7 +209,7 @@ export function buildGCInvoice({ gcName, project, workersById, punches, weekStar
   // date -> { carpentry:{hours, onsite:Set}, general: Map(rate -> {hours, onsite:Set}) }
   const byDay = new Map();
   const flags = [];
-  let grossTotal = 0, netTotal = 0;
+  let grossTotal = 0, netTotal = 0, lunchTotal = 0;
 
   for (const [wid, wp] of byWorker) {
     const worker = workersById[wid] || { WorkerID: wid };
@@ -221,16 +221,16 @@ export function buildGCInvoice({ gcName, project, workersById, punches, weekStar
       const projHrs = ph[projId] || 0;
       if (projHrs <= 0) continue;
       const dayTotal = Object.values(ph).reduce((a, b) => a + b, 0); // worker's clocked day (all projects)
-      let billableDay;
-      if (siCapActive && String(worker.SubID).trim() === 'SANIG') {
-        const lunch = dayTotal >= 8.5 ? LUNCH_HOURS : 0;              // lunch only at 8.5+
-        billableDay = Math.max(0, Math.min(dayTotal, cap) - lunch);  // cap 9, then lunch
-      } else {
-        billableDay = Math.max(0, dayTotal - LUNCH_HOURS);           // actual − lunch (unchanged)
-      }
+      const isSICap = siCapActive && String(worker.SubID).trim() === 'SANIG';
+      const lunchForDay = isSICap ? (dayTotal >= 8.5 ? LUNCH_HOURS : 0) : LUNCH_HOURS; // SI: lunch only at 8.5+
+      const capped = isSICap ? Math.min(dayTotal, cap) : dayTotal;   // SI: 9-hr clocked cap
+      const billableDay = Math.max(0, capped - lunchForDay);
       const factor = dayTotal > 0 ? billableDay / dayTotal : 0;
       const net = projHrs * factor;
       grossTotal += projHrs; netTotal += net;
+      // Report ACTUAL lunch only (not the cap reduction) so Slab's reallocation
+      // and lunch display stay correct.
+      lunchTotal += dayTotal > 0 ? (projHrs / dayTotal) * lunchForDay : 0;
       if (net <= 0) continue;
       if (!byDay.has(d.date)) byDay.set(d.date, { carpentry: { hours: 0, onsite: new Set() }, general: new Map() });
       const day = byDay.get(d.date);
@@ -264,7 +264,7 @@ export function buildGCInvoice({ gcName, project, workersById, punches, weekStar
     project: { id: projId, name: project.SiteName || projId },
     weekStart, weekEnd: end, workStart, workEnd, period: periodLabel(workStart, workEnd),
     days,
-    lunchHours: round2(grossTotal - netTotal),
+    lunchHours: round2(lunchTotal),
     totalHours: round2(days.reduce((s, d) => s + d.lines.reduce((t, l) => t + l.hours, 0), 0)),
     total: round2(days.reduce((s, d) => s + d.lines.reduce((t, l) => t + l.amount, 0), 0)),
     flags,
