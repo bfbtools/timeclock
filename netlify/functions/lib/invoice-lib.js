@@ -188,10 +188,15 @@ export function buildSubInvoice({ sub, workers, punches, materials = [], project
 //   project      : ONE Projects row (BillsToGC=Y)
 //   workersById  : { workerId: Workers row }  (any sub — GC rate is project-based)
 //   punches      : Punches rows for the week
-export function buildGCInvoice({ gcName, project, workersById, punches, weekStart }) {
+export function buildGCInvoice({ gcName, project, workersById, punches, weekStart, cap = 9 }) {
   const { end } = weekRange(weekStart);
   const projId = String(project.ProjectID).trim();
   const gcRate = num(project.GCRate) || 0;
+  // San Ignacio GC billing cap (Adrienne, from all of August): a worker-day bills
+  // at most `cap` (9) clocked hours to the GC, and lunch (0.75) comes off ONLY when
+  // the day clocked >= 8.5. SI-only, from 2026-08-01 — a SEPARATE rule from the pay
+  // guarantee (NOT wired to guaranteedDayFrom). Every other sub: actual − lunch.
+  const siCapActive = String(weekStart) >= '2026-08-01';
 
   const byWorker = new Map();
   for (const p of punches) {
@@ -215,8 +220,15 @@ export function buildGCInvoice({ gcName, project, workersById, punches, weekStar
       const ph = projectHoursQuarter(d.intervals);            // per-shift 15-min rounded (all projects)
       const projHrs = ph[projId] || 0;
       if (projHrs <= 0) continue;
-      const dayTotal = Object.values(ph).reduce((a, b) => a + b, 0); // spread lunch across the day
-      const factor = dayTotal > 0 ? Math.max(0, dayTotal - LUNCH_HOURS) / dayTotal : 0;
+      const dayTotal = Object.values(ph).reduce((a, b) => a + b, 0); // worker's clocked day (all projects)
+      let billableDay;
+      if (siCapActive && String(worker.SubID).trim() === 'SANIG') {
+        const lunch = dayTotal >= 8.5 ? LUNCH_HOURS : 0;              // lunch only at 8.5+
+        billableDay = Math.max(0, Math.min(dayTotal, cap) - lunch);  // cap 9, then lunch
+      } else {
+        billableDay = Math.max(0, dayTotal - LUNCH_HOURS);           // actual − lunch (unchanged)
+      }
+      const factor = dayTotal > 0 ? billableDay / dayTotal : 0;
       const net = projHrs * factor;
       grossTotal += projHrs; netTotal += net;
       if (net <= 0) continue;

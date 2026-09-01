@@ -28,8 +28,9 @@ export default guard(async (req) => {
   const send = query(req, 'send') === '1';
   const company = query(req, 'company') || '';
 
+  const capIn = Number(query(req, 'cap'));  // San Ignacio GC billing cap (default 9 in buildGCInvoice)
   const data = await fetchWeekData(weekStart);
-  const gen = generateWeekInvoices({ ...data, weekStart, company });
+  const gen = generateWeekInvoices({ ...data, weekStart, company, ...(Number.isFinite(capIn) && capIn > 0 ? { cap: capIn } : {}) });
   // allowTestRoute: this manual endpoint honors TEST_INVOICE_EMAIL (routes to the
   // test address). The scheduled run does not, so it always emails real subs.
   // Only SUB invoices are sent here; GC drafts are returned as data for Slab.

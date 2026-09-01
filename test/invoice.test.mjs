@@ -115,6 +115,33 @@ test('QB invoice: Carpentry at $50, General Labor for override workers, no lunch
   assert.equal(qb.total, 540);
 });
 
+/* --------------------------------- GC billing cap (San Ignacio, from Aug 1) */
+// weekStart>=2026-08-01 + SubID SANIG: worker-day billed at 9 clocked hrs max,
+// lunch (0.75) only when the day clocked >= 8.5. Others: actual − lunch.
+const carpHrs = (gc) => gc.days.reduce((t, d) => t + d.lines.filter((l) => l.item === 'Carpentry Labor').reduce((s, l) => s + l.hours, 0), 0);
+const gcOneDay = (subId, inT, outT, weekStart, day = '2026-08-03') => buildGCInvoice({
+  gcName: 'Opus', project: { ProjectID: 'P01', SiteName: 'French 1', GCRate: '68' },
+  workersById: { W: { WorkerID: 'W', First: 'X', SubID: subId } },
+  punches: [P(`${day} ${inT}`, 'IN', 'P01', 'W'), P(`${day} ${outT}`, 'OUT', 'P01', 'W')],
+  weekStart,
+});
+
+test('GC cap: San Ignacio 10.5h day caps to 9, then lunch → 8.25', () => {
+  assert.equal(round2(carpHrs(gcOneDay('SANIG', '06:00:00', '16:30:00', '2026-08-03'))), 8.25);
+});
+test('GC cap: San Ignacio under 8.5h day gets NO lunch', () => {
+  assert.equal(round2(carpHrs(gcOneDay('SANIG', '07:00:00', '15:00:00', '2026-08-03'))), 8);   // 8.0, no lunch
+});
+test('GC cap: San Ignacio 8.75h day (>=8.5) loses lunch → 8.00', () => {
+  assert.equal(round2(carpHrs(gcOneDay('SANIG', '07:00:00', '15:45:00', '2026-08-03'))), 8);
+});
+test('GC cap: a non-San-Ignacio sub is unchanged (10.5 → 9.75)', () => {
+  assert.equal(round2(carpHrs(gcOneDay('LOPEZ', '06:00:00', '16:30:00', '2026-08-03'))), 9.75);
+});
+test('GC cap: pre-August San Ignacio week is NOT capped (10.5 → 9.75)', () => {
+  assert.equal(round2(carpHrs(gcOneDay('SANIG', '06:00:00', '16:30:00', '2026-07-27', '2026-07-27'))), 9.75);
+});
+
 /* ------------------------------------------------ Guaranteed Day (sub floor) */
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const SANIG_G = { SubID: 'SANIG', CompanyName: 'San Ignacio LLC', DefaultPayRate: '50', GuaranteedDayOn: 'TRUE', GuaranteedDayHours: '10', GuaranteedDayMin: '8.5' };

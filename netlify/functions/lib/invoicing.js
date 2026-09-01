@@ -60,7 +60,7 @@ export async function fetchWeekData(weekStart) {
 // a GC name like "Opus" (→ just that GC's drafts). Omitted = the full week, so
 // the scheduled Monday run is unaffected. Prevents re-issuing one corrected
 // company from regenerating/re-sending every other company's invoice.
-export function generateWeekInvoices({ subs, workers, projects, punches, materials, weekStart, company }) {
+export function generateWeekInvoices({ subs, workers, projects, punches, materials, weekStart, company, cap }) {
   const workersById = {};
   workers.forEach((w) => { workersById[String(w.WorkerID).trim()] = w; });
   const projectsById = {};
@@ -91,7 +91,7 @@ export function generateWeekInvoices({ subs, workers, projects, punches, materia
   const gcInvoices = [];
   for (const p of projects.filter((pr) => active(pr) && isY(pr.BillsToGC))) {
     const gcName = String(p.GCName || '').trim() || 'GC';
-    const gc = buildGCInvoice({ gcName, project: p, workersById, punches, weekStart });
+    const gc = buildGCInvoice({ gcName, project: p, workersById, punches, weekStart, ...(cap != null ? { cap } : {}) });
     if (gc.total > 0) {
       gcInvoices.push({ gcName, projectId: gc.project.id, gc, primarySubId: primarySubForGC(gc, subInvoices), gcDraftSeq: num(p.GCDraftSeq) });
     }

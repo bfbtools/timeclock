@@ -35,8 +35,11 @@ export default guard(async (req) => {
     try { adj = JSON.parse(rawAdj); } catch { return json(400, { ok: false, error: 'adj must be valid JSON' }); }
   }
 
+  // Billing cap (San Ignacio only, applied in buildGCInvoice; default 9). Slab's
+  // Billing Cap box sends it top-level in the adj blob; omitted → default.
+  const capIn = Number(adj.cap);
   const data = await fetchWeekData(weekStart);
-  const gen = generateWeekInvoices({ ...data, weekStart, company });
+  const gen = generateWeekInvoices({ ...data, weekStart, company, ...(Number.isFinite(capIn) && capIn > 0 ? { cap: capIn } : {}) });
   const gcs = gen.gcInvoices.filter((g) => g.gcName === company);
   if (!gcs.length) return json(404, { ok: false, error: `No ${company} GC invoice for week ${weekStart}` });
 
