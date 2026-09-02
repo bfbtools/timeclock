@@ -36,7 +36,7 @@ const M = CX + PAD;                   // content left
 const RIGHT = CX + CW - PAD;          // content right
 const R = 14;                         // corner radius
 const HEADER_H = 74;
-const COL = { rateR: 424, hoursR: 500, amtR: RIGHT };  // order: DATE/ITEM · RATE · HOURS · AMOUNT
+const COL = { rateR: 418, hoursR: 476, amtR: RIGHT };  // order: DATE/ITEM · RATE · HOURS · AMOUNT
 
 const roundedRect = (w, h, r) => `M ${r} 0 H ${w - r} Q ${w} 0 ${w} ${r} V ${h - r} Q ${w} ${h} ${w - r} ${h} H ${r} Q 0 ${h} 0 ${h - r} V ${r} Q 0 0 ${r} 0 Z`;
 const roundedTop = (w, h, r) => `M 0 ${r} Q 0 0 ${r} 0 H ${w - r} Q ${w} 0 ${w} ${r} V ${h} H 0 Z`;
