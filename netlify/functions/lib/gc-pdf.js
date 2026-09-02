@@ -97,7 +97,7 @@ export async function gcInvoicePdf(inv, meta = {}) {
         right(money(l.amount), COL.amtR, 10.5, mono);
         y -= 12;
         left(`Onsite: ${(l.onsite || []).join(', ') || '—'}`, M, 8.5, font, SOFT);
-        y -= 6; rule(); y -= 10;
+        y -= 8; rule(); y -= 11;
       }
     }
     // Per-project subtotal — each section is its own Buildertrend invoice
