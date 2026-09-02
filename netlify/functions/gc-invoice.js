@@ -38,6 +38,7 @@ export default guard(async (req) => {
   // Billing cap (San Ignacio only, applied in buildGCInvoice; default 9). Slab's
   // Billing Cap box sends it top-level in the adj blob; omitted → default.
   const capIn = Number(adj.cap);
+  const capVal = Number.isFinite(capIn) && capIn > 0 ? capIn : 9;
   const data = await fetchWeekData(weekStart);
   const gen = generateWeekInvoices({ ...data, weekStart, company, ...(Number.isFinite(capIn) && capIn > 0 ? { cap: capIn } : {}) });
   const gcs = gen.gcInvoices.filter((g) => g.gcName === company);
@@ -70,7 +71,7 @@ export default guard(async (req) => {
     period: `${fullYear(g0.workStart)} – ${fullYear(g0.workEnd)}`,
     projects,
     total: r2(total),
-    note: `Hours shown are net billable, after a 0.75 hr per-worker, per-day lunch deduction. Carpentry Labor billed at $68.00/hr; General Labor (Carlito) at $40.00/hr. ${company} GC projects only.`,
+    note: `Hours shown are net billable. A worker-day is billed at a maximum of ${capVal} clocked hours, and the 0.75 hr per-worker lunch is deducted only on days of 8.5 clocked hours or more. Carpentry Labor billed at $68.00/hr; General Labor (Carlito) at $40.00/hr. ${company} GC projects only.`,
   });
 
   return new Response(pdf, {

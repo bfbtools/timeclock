@@ -63,7 +63,7 @@ export async function gcInvoicePdf(inv, meta = {}) {
     page.drawRectangle({ x: CX + 2 * seg, y: sy, width: seg, height: 4, color: GREEN });
     y = cardTop - 34; left('Back Forty Builders', M, 20, bold, rgb(1, 1, 1));
     y = cardTop - 54; left(`GC Draft Invoice #${inv.invoiceNo || ''} — review before sending`, M, 10.5, bold, TAN);
-    y = cardTop - HEADER_H - 34;
+    y = cardTop - HEADER_H - 28;
   };
   const colHead = () => {
     left('DATE / ITEM', M, 9, bold, SOFT);
@@ -79,14 +79,14 @@ export async function gcInvoicePdf(inv, meta = {}) {
   chrome();
   left(inv.gcName || 'GC', M, 15, bold, INK);
   left(`  ·  cost code ${inv.costCode || '01 31 00'}`, M + bold.widthOfTextAtSize(inv.gcName || 'GC', 15), 10, font, SOFT);
-  y -= 16; left(`Week of ${inv.period || ''}`, M, 10, font, SOFT); y -= 18;
+  y -= 15; left(`Week of ${inv.period || ''}`, M, 10, font, SOFT); y -= 14;
   colHead();
 
   for (const p of inv.projects || []) {
     need(36);
     left(p.name, M, 11, bold, GREEN);
     if (p.invoiceNo) left(`·  #${p.invoiceNo}`, M + bold.widthOfTextAtSize(p.name, 11) + 10, 9.5, font, SOFT);
-    y -= 16;
+    y -= 14;
     for (const d of p.days || []) {
       for (const l of d.lines || []) {
         need(31);
@@ -97,7 +97,7 @@ export async function gcInvoicePdf(inv, meta = {}) {
         right(money(l.amount), COL.amtR, 10.5, mono);
         y -= 12;
         left(`Onsite: ${(l.onsite || []).join(', ') || '—'}`, M, 8.5, font, SOFT);
-        y -= 8; rule(); y -= 11;
+        y -= 6; rule(); y -= 10;
       }
     }
   }
@@ -106,7 +106,7 @@ export async function gcInvoicePdf(inv, meta = {}) {
   const amt = money(inv.total);
   right('TOTAL', COL.amtR - bold.widthOfTextAtSize(amt, 13) - 20, 13, bold);
   right(amt, COL.amtR, 13, bold);
-  y -= 30;
+  y -= 20;
 
   if (inv.note) {
     need(50, false);
