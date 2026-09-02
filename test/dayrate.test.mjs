@@ -15,8 +15,8 @@ test('creditDay: every §3 boundary row', () => {
     [4.26, 4.25, false, 4.25, 0.00],   // real: Helio 2026-08-28
     [8.43, 8.50, false, 8.50, 0.00],   // real: Willy 2026-08-17 — clocked, not billable
     [8.49, 8.50, false, 8.50, 0.00],   // under by a hundredth
-    [8.50, 8.50, true, 10.00, 1.50],   // threshold is >=, not >
-    [8.51, 8.50, true, 10.00, 1.50],
+    [8.50, 8.50, false, 8.50, 0.00],   // EXACTLY 8.50 → actual (boundary is strict >, Adrienne 2026-09-02)
+    [8.51, 8.50, true, 10.00, 1.50],   // first hundredth over → qualifies
     [8.61, 8.50, true, 10.00, 1.50],   // real: Elman 2026-08-27
     [8.60, 8.75, true, 10.00, 1.25],   // two shifts (4.20+4.40 clocked; 4.25+4.50 billable)
     [9.25, 9.25, true, 10.00, 0.75],   // 9.25-0.75 lunch=8.5, irrelevant: threshold is clocked
@@ -33,7 +33,8 @@ test('creditDay: every §3 boundary row', () => {
 
 test('creditDay: uplift is never negative and the floor never caps', () => {
   assert.equal(cd(20, 20).credited, 20);       // 20h day pays 20
-  assert.equal(cd(8.5, 8.5).uplift, 1.5);
+  assert.equal(cd(8.51, 8.5).uplift, 1.5);     // just over the strict-> boundary
+  assert.equal(cd(8.5, 8.5).uplift, 0);        // exactly 8.50 → no uplift
   assert.ok(cd(4, 4).uplift >= 0);
 });
 

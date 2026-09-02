@@ -188,14 +188,17 @@ export function buildSubInvoice({ sub, workers, punches, materials = [], project
 //   project      : ONE Projects row (BillsToGC=Y)
 //   workersById  : { workerId: Workers row }  (any sub — GC rate is project-based)
 //   punches      : Punches rows for the week
-export function buildGCInvoice({ gcName, project, workersById, punches, weekStart, cap = 9 }) {
+export function buildGCInvoice({ gcName, project, workersById, punches, weekStart, cap = 9.5 }) {
   const { end } = weekRange(weekStart);
   const projId = String(project.ProjectID).trim();
   const gcRate = num(project.GCRate) || 0;
   // San Ignacio GC billing cap (Adrienne, from all of August): a worker-day bills
-  // at most `cap` (9) clocked hours to the GC, and lunch (0.75) comes off ONLY when
-  // the day clocked >= 8.5. SI-only, from 2026-08-01 — a SEPARATE rule from the pay
-  // guarantee (NOT wired to guaranteedDayFrom). Every other sub: actual − lunch.
+  // at most `cap` (9.5) clocked hours to the GC, and lunch (0.75) comes off ONLY when
+  // the day clocked >= 8.5 (inclusive) — so a full day bills 8.75. SI-only, from
+  // 2026-08-01 — a SEPARATE rule from the pay guarantee (NOT wired to
+  // guaranteedDayFrom; and the pay guarantee's 8.5 boundary is strict `>`, this
+  // lunch boundary is inclusive `>=` — same number, opposite branch at exactly 8.50).
+  // Every other sub: actual − lunch.
   const siCapActive = String(weekStart) >= '2026-08-01';
 
   const byWorker = new Map();
@@ -223,7 +226,7 @@ export function buildGCInvoice({ gcName, project, workersById, punches, weekStar
       const dayTotal = Object.values(ph).reduce((a, b) => a + b, 0); // worker's clocked day (all projects)
       const isSICap = siCapActive && String(worker.SubID).trim() === 'SANIG';
       const lunchForDay = isSICap ? (dayTotal >= 8.5 ? LUNCH_HOURS : 0) : LUNCH_HOURS; // SI: lunch only at 8.5+
-      const capped = isSICap ? Math.min(dayTotal, cap) : dayTotal;   // SI: 9-hr clocked cap
+      const capped = isSICap ? Math.min(dayTotal, cap) : dayTotal;   // SI: 9.5-hr clocked cap
       const billableDay = Math.max(0, capped - lunchForDay);
       const factor = dayTotal > 0 ? billableDay / dayTotal : 0;
       const net = projHrs * factor;

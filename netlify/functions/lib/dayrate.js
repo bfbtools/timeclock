@@ -2,9 +2,13 @@
 // calendar day. Set once per sub company (San Ignacio LLC to start) and
 // inherited by every worker under it; there is no per-person override.
 //
-// Rule (Adrienne, 2026-08-29): per worker, per calendar day — if CLOCKED hours
-// >= `min` (8.5) the day pays `hours` (10); otherwise it pays the actual
-// billable hours. Two deliberate choices (SUB_DAY_RATE_HANDOFF.md §2):
+// Rule (Adrienne, 2026-08-29; boundary corrected 2026-09-02): per worker, per
+// calendar day — if CLOCKED hours are STRICTLY GREATER than `min` (8.5) the day
+// pays `hours` (10); otherwise (including exactly 8.50) it pays the actual
+// billable hours. NB: this pay boundary is strict `>`; the GC-invoice lunch
+// threshold in buildGCInvoice is the same 8.5 but INCLUSIVE `>=`. Same number,
+// opposite branch at exactly 8.50 — do not collapse them into one comparison.
+// Two deliberate choices (SUB_DAY_RATE_HANDOFF.md §2):
 //   - The threshold is tested against RAW CLOCKED hours, NOT net of lunch.
 //   - The floor is applied to BILLABLE hours (each shift rounded to the nearest
 //     0.25 h, then summed) — the unit the invoice is already in.
@@ -55,7 +59,7 @@ export function creditDay({ clocked, billable, rule, date }) {
   if (!rule || (rule.from && date && String(date) < rule.from)) {
     return { date, clocked: c, billable: b, credited: b, uplift: 0, qualified: false };
   }
-  const qualified = c >= rule.min;                        // CLOCKED threshold (§2a)
+  const qualified = c > rule.min;                         // CLOCKED threshold, STRICT > (exactly 8.50 → actual)
   const credited = qualified ? Math.max(b, rule.hours) : b; // floor, never a cap
   return { date, clocked: c, billable: b, credited: round2(credited), uplift: round2(credited - b), qualified };
 }

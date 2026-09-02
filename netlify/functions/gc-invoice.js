@@ -35,10 +35,11 @@ export default guard(async (req) => {
     try { adj = JSON.parse(rawAdj); } catch { return json(400, { ok: false, error: 'adj must be valid JSON' }); }
   }
 
-  // Billing cap (San Ignacio only, applied in buildGCInvoice; default 9). Slab's
-  // Billing Cap box sends it top-level in the adj blob; omitted → default.
+  // Billing cap (San Ignacio only, applied in buildGCInvoice; default 9.5 → bills
+  // 8.75 after lunch). Slab's Billing Cap box sends it top-level in the adj blob;
+  // omitted → default. Keep this default in lockstep with buildGCInvoice's `cap`.
   const capIn = Number(adj.cap);
-  const capVal = Number.isFinite(capIn) && capIn > 0 ? capIn : 9;
+  const capVal = Number.isFinite(capIn) && capIn > 0 ? capIn : 9.5;
   const data = await fetchWeekData(weekStart);
   const gen = generateWeekInvoices({ ...data, weekStart, company, ...(Number.isFinite(capIn) && capIn > 0 ? { cap: capIn } : {}) });
   const gcs = gen.gcInvoices.filter((g) => g.gcName === company);

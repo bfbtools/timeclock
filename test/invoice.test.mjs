@@ -126,8 +126,8 @@ const gcOneDay = (subId, inT, outT, weekStart, day = '2026-08-03') => buildGCInv
   weekStart,
 });
 
-test('GC cap: San Ignacio 10.5h day caps to 9, then lunch → 8.25', () => {
-  assert.equal(round2(carpHrs(gcOneDay('SANIG', '06:00:00', '16:30:00', '2026-08-03'))), 8.25);
+test('GC cap: San Ignacio 10.5h day caps to 9.5, then lunch → 8.75', () => {
+  assert.equal(round2(carpHrs(gcOneDay('SANIG', '06:00:00', '16:30:00', '2026-08-03'))), 8.75);
 });
 test('GC cap: San Ignacio under 8.5h day gets NO lunch', () => {
   assert.equal(round2(carpHrs(gcOneDay('SANIG', '07:00:00', '15:00:00', '2026-08-03'))), 8);   // 8.0, no lunch
@@ -147,15 +147,24 @@ const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 const SANIG_G = { SubID: 'SANIG', CompanyName: 'San Ignacio LLC', DefaultPayRate: '50', GuaranteedDayOn: 'TRUE', GuaranteedDayHours: '10', GuaranteedDayMin: '8.5' };
 const W1 = [{ WorkerID: 'W1', First: 'Fredy', SubID: 'SANIG' }];
 
-test('guaranteed day: an 8.5 h clocked day is credited 10 and folds into total', () => {
+test('guaranteed day: a 9 h clocked day (> 8.5) is credited 10 and folds into total', () => {
+  const punches = [P('2026-07-06 07:00:00', 'IN', 'PRJ_A'), P('2026-07-06 16:00:00', 'OUT', 'PRJ_A')]; // 9 h
+  const inv = buildSubInvoice({ sub: SANIG_G, workers: W1, punches, weekStart: '2026-07-06' });
+  assert.equal(inv.laborTotal, 450);           // 9 × 50, pre-uplift
+  assert.equal(inv.guaranteedDayOn, true);
+  assert.equal(inv.guaranteedDayHours, 1);     // 10 − 9
+  assert.equal(inv.guaranteedDayAmount, 50);   // 1 × 50
+  assert.equal(inv.total, 500);                // 450 + 50, uplift off LABOR only
+  assert.deepEqual(inv.guaranteedDayByProject, [{ projectId: 'PRJ_A', name: 'PRJ_A', hours: 1 }]);
+});
+
+test('guaranteed day: EXACTLY 8.50 clocked pays actual, no uplift (strict > boundary)', () => {
   const punches = [P('2026-07-06 07:00:00', 'IN', 'PRJ_A'), P('2026-07-06 15:30:00', 'OUT', 'PRJ_A')]; // 8.5 h
   const inv = buildSubInvoice({ sub: SANIG_G, workers: W1, punches, weekStart: '2026-07-06' });
-  assert.equal(inv.laborTotal, 425);           // 8.5 × 50, pre-uplift
-  assert.equal(inv.guaranteedDayOn, true);
-  assert.equal(inv.guaranteedDayHours, 1.5);   // 10 − 8.5
-  assert.equal(inv.guaranteedDayAmount, 75);   // 1.5 × 50
-  assert.equal(inv.total, 500);                // 425 + 75, uplift off LABOR only
-  assert.deepEqual(inv.guaranteedDayByProject, [{ projectId: 'PRJ_A', name: 'PRJ_A', hours: 1.5 }]);
+  assert.equal(inv.laborTotal, 425);           // 8.5 × 50
+  assert.equal(inv.guaranteedDayOn, true);     // policy on...
+  assert.equal(inv.guaranteedDayHours, 0);     // ...but exactly 8.50 does not qualify
+  assert.equal(inv.total, 425);                // no uplift
 });
 
 test('guaranteed day: cross-job uplift split sums EXACTLY to the uplift', () => {
