@@ -59,6 +59,7 @@ export default guard(async (req) => {
       return {
         name: g.gc.project.name,
         invoiceNo: (baseNo && Number.isInteger(g.gcDraftSeq)) ? `${baseNo}.${g.gcDraftSeq}` : '',
+        total: c.total,   // each project is its own BT invoice (OPUS-04 / OPUS-05)
         days: c.days.map((d) => ({ date: d.date, lines: d.lines })),
       };
     });

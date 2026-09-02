@@ -100,6 +100,15 @@ export async function gcInvoicePdf(inv, meta = {}) {
         y -= 6; rule(); y -= 10;
       }
     }
+    // Per-project subtotal — each section is its own Buildertrend invoice
+    // (French 1 → OPUS-04, French 2 → OPUS-05), so each carries its own figure.
+    if (p.total != null) {
+      need(20);
+      const st = money(p.total);
+      right(`${p.invoiceNo ? '#' + p.invoiceNo + '  ' : ''}Subtotal`, COL.amtR - bold.widthOfTextAtSize(st, 10.5) - 16, 10.5, bold, SOFT);
+      right(st, COL.amtR, 10.5, bold, GREEN);
+      y -= 18;
+    }
   }
 
   need(30, false); y -= 6;
