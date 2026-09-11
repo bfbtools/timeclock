@@ -211,30 +211,17 @@ export async function deliverWeek({ gen, send, allowTestRoute = false }) {
         // so the accounting@ bill-router files it exactly as before.
         const slabInvoice = await fetchSlabPdf({ company: sub.CompanyName, weekStart: invoice.weekStart, doc: 'invoice' });
         const invoicePdf = slabInvoice ? slabInvoice.content : await subInvoicePdf(invoice, { invoiceNo, invoiceDate });
-        const invoiceAtt = { filename: invoiceFileName(invoice), content: invoicePdf, contentType: 'application/pdf' };
         const breakdown = await fetchSlabPdf({ company: sub.CompanyName, weekStart: invoice.weekStart, doc: 'breakdown' });
         const slabOn = !!(slabInvoice || breakdown);
-
-        if (testTo) {
-          // Test: one preview email to the test address carrying everything.
-          const { subject, html } = renderSubInvoiceEmail(invoice, { invoiceNo, invoiceDate, slabAttached: slabOn, breakdownAttached: !!breakdown });
-          const atts = [invoiceAtt];
-          if (breakdown) atts.push({ filename: breakdown.filename, content: breakdown.content, contentType: 'application/pdf' });
-          await sendEmail({ to: [testTo], subject: subj(subject), html, attachments: atts });
-        } else {
-          // SPLIT the send. The accounting@ bill-router files EVERY PDF on a message
-          // (bfb-accounting-script Code.js), so the breakdown must NOT reach it or it
-          // would be filed as a bogus bill. accounting@ gets the invoice ALONE (filed
-          // exactly as today); the sub gets both matching Slab docs + the bar.
-          const acctMail = renderSubInvoiceEmail(invoice, { invoiceNo, invoiceDate }); // no bar, invoice only
-          await sendEmail({ to: [acct], subject: subj(acctMail.subject), html: acctMail.html, attachments: [invoiceAtt] });
-          if (sub.Email) {
-            const subMail = renderSubInvoiceEmail(invoice, { invoiceNo, invoiceDate, slabAttached: slabOn, breakdownAttached: !!breakdown });
-            const atts = [invoiceAtt];
-            if (breakdown) atts.push({ filename: breakdown.filename, content: breakdown.content, contentType: 'application/pdf' });
-            await sendEmail({ to: [sub.Email], subject: subj(subMail.subject), html: subMail.html, attachments: atts });
-          }
-        }
+        // ONE email to accounting@ + the sub carrying BOTH PDFs (Adrienne). The
+        // breakdown keeps its Slab "…_Labor_Breakdown_….pdf" name; the accounting@
+        // bill-router (bfb-accounting-script Code.js) skips any "Labor_Breakdown"
+        // attachment so it is never filed as a bill — the invoice alone is filed,
+        // under its original filename convention.
+        const { subject, html } = renderSubInvoiceEmail(invoice, { invoiceNo, invoiceDate, slabAttached: slabOn, breakdownAttached: !!breakdown });
+        const attachments = [{ filename: invoiceFileName(invoice), content: invoicePdf, contentType: 'application/pdf' }];
+        if (breakdown) attachments.push({ filename: breakdown.filename, content: breakdown.content, contentType: 'application/pdf' });
+        await sendEmail({ to, subject: subj(subject), html, attachments });
       } catch (e) { status = 'error'; sentTo = e.message; }
     }
     // Skip the log in test mode: a row here would make the scheduled run treat
