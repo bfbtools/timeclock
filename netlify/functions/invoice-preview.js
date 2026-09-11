@@ -59,6 +59,13 @@ export default guard(async (req) => {
       // perDay[] for the DATES range }. Uplift stays out of these lines (it's on
       // guaranteedDay* + folds into total), matching the invoice's separate uplift row.
       projects: s.invoice.projects,
+      // Per-line materials so Slab can render one row per item like the Time Clock's
+      // own PDF (pdf.js:73-74: "Materials — <note>" in the PROJECT column, $ in
+      // AMOUNT, no QTY/RATE). Item shape { amount, note, project(id) }; the Time
+      // Clock carries only a free-text note + amount + project — any vendor/receipt#
+      // detail lives inside `note`. materialsTotal = Σ amount, and it's already
+      // inside `total` (laborTotal + materialsTotal + guaranteedDayAmount).
+      materials: s.invoice.materials,
       total: s.invoice.total,
       autoSend: s.autoSend,
       independent: s.independent,
