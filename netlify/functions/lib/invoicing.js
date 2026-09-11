@@ -26,6 +26,33 @@ function addDaysISO(iso, n) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// Fetch a Slab-generated sub PDF at send time (POST /api/sub-invoice-pdf, service
+// auth). Returns { filename, content } or null on ANY failure — endpoint not
+// deployed yet (404), Slab down, or no token — so the invoice still sends from the
+// Time Clock's own pdf.js and a sub is never blocked from getting paid. Logs the
+// Slab error BODY, not just the status, so a failure is diagnosable.
+async function fetchSlabPdf({ company, weekStart, doc }) {
+  const token = process.env.SLAB_SERVICE_TOKEN;
+  if (!token) return null;
+  const base = process.env.SLAB_BASE_URL || 'https://slab.backforty.builders';
+  try {
+    const r = await fetch(`${base}/api/sub-invoice-pdf`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'X-Slab-Service-Token': token },
+      body: JSON.stringify({ subId: company, weekStart, doc }),
+    });
+    const data = await r.json().catch(() => null);
+    if (!r.ok || !data || data.ok === false || !data.contentBase64) {
+      console.error(`[slab-pdf] ${doc} ${company} ${weekStart}: HTTP ${r.status} — ${(data && (data.error || data.message)) || '(no/invalid body)'}`);
+      return null;
+    }
+    return { filename: data.filename || `${company}_${doc}_${weekStart}.pdf`, content: Buffer.from(data.contentBase64, 'base64') };
+  } catch (e) {
+    console.error(`[slab-pdf] ${doc} ${company} ${weekStart}: ${(e && e.message) || e}`);
+    return null;
+  }
+}
+
 // The most recently COMPLETED week for a given ET date.
 // The billing week is Mon–Sun, so on any day Mon–Sat the current week is still
 // in progress → invoice the prior week. (Sunday can't occur here: the scheduled
@@ -177,9 +204,18 @@ export async function deliverWeek({ gen, send, allowTestRoute = false }) {
     let sentTo = autoSend ? to.join(', ') : '';
     if (send && autoSend) {
       try {
-        const { subject, html } = renderSubInvoiceEmail(invoice, { invoiceNo, invoiceDate });
         const pdf = await subInvoicePdf(invoice, { invoiceNo, invoiceDate });
-        // Name the attached PDF with the BFB bill-processing convention
+        // Slab-generated Labor Breakdown, attached ALONGSIDE the Time Clock invoice
+        // PDF (Adrienne, option 1). The Time Clock invoice stays the filed copy —
+        // the accounting@ bill router files by ITS name — so numbering/filing are
+        // untouched; the breakdown is an extra attachment for the sub. If Slab is
+        // unreachable, fetchSlabPdf returns null and we send exactly as before (no
+        // breakdown, no "generated in Slab" bar).
+        const breakdown = await fetchSlabPdf({ company: sub.CompanyName, weekStart: invoice.weekStart, doc: 'breakdown' });
+        const { subject, html } = renderSubInvoiceEmail(invoice, {
+          invoiceNo, invoiceDate, slabAttached: !!breakdown, breakdownAttached: !!breakdown,
+        });
+        // Name the invoice PDF with the BFB bill-processing convention
         // (YYYY-MM-DD_to_MM-DD_Vendor_Projects_$Total.pdf). The accounting-side
         // bill router files this attachment into Need To Be Processed itself
         // (idempotent by filename), so the timeclock tool does NOT write to Drive
@@ -187,7 +223,9 @@ export async function deliverWeek({ gen, send, allowTestRoute = false }) {
         // "handoff 1a" folder write lived here; it silently failed on every run
         // because its Drive create errored and the result was never logged, so
         // the invoices only ever reached Drive via the router. Removed 2026-08-10.)
-        await sendEmail({ to, subject: subj(subject), html, attachments: [{ filename: invoiceFileName(invoice), content: pdf, contentType: 'application/pdf' }] });
+        const attachments = [{ filename: invoiceFileName(invoice), content: pdf, contentType: 'application/pdf' }];
+        if (breakdown) attachments.push({ filename: breakdown.filename, content: breakdown.content, contentType: 'application/pdf' });
+        await sendEmail({ to, subject: subj(subject), html, attachments });
       } catch (e) { status = 'error'; sentTo = e.message; }
     }
     // Skip the log in test mode: a row here would make the scheduled run treat

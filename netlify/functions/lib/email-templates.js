@@ -65,17 +65,23 @@ function readoutBlock(inv) {
     <div style="font-size:11px;color:${C.soft};margin:2px 0 6px">Real stamps with each day's hours and a weekly total per person. 0-hour mis-punches omitted. Invoice qty is these hours rounded to 15 min.</div>
     ${rows}</div>`;
 }
+// Bottom bar, shown only when a Slab-generated PDF is actually attached (so it
+// never claims "generated in Slab" on a fallback email that carries only the
+// Time Clock's own invoice). Text is fixed per Adrienne.
+function slabBar() {
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:16px auto 0;padding:8px 14px;background:${C.paper};border:1px solid ${C.line};border-radius:10px;text-align:center;font-size:11px;color:${C.soft}">Documents generated in Slab.</div>`;
+}
 export function renderSubInvoiceEmail(inv, meta = {}) {
   const invNo = meta.invoiceNo || '';
   const note = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto 16px;color:${C.ink}">
     <div style="font-size:16px;font-weight:bold">${inv.company}</div>
     <div style="font-size:13px;color:${C.soft};margin-top:2px">Invoice #${invNo}${meta.invoiceDate ? ' • ' + fmtLong(meta.invoiceDate) : ''}${inv.period ? ' • work period ' + inv.period : ''} • Due on receipt</div>
-    <div style="font-size:14px;margin-top:10px">The invoice for <b>${(inv.projectNames || []).join(', ')}</b> is attached as a PDF. Total <b>${money(inv.total)}</b>.</div>
-    ${inv.guaranteedDayOn && inv.guaranteedDayAmount > 0 ? `<div style="font-size:12px;color:${C.soft};margin-top:6px">Includes Guaranteed 10-Hour Days: +${inv.guaranteedDayHours} hr (${money(inv.guaranteedDayAmount)}) — days of 8.5+ clocked hours are paid at 10. Itemized on the attached PDF.</div>` : ''}
+    <div style="font-size:14px;margin-top:10px">The invoice for <b>${(inv.projectNames || []).join(', ')}</b> is attached as a PDF${meta.breakdownAttached ? ', with the labor breakdown' : ''}. Total <b>${money(inv.total)}</b>.</div>
+    ${inv.guaranteedDayOn && inv.guaranteedDayAmount > 0 ? `<div style="font-size:12px;color:${C.soft};margin-top:6px">Includes Guaranteed 10-Hour Days: +${inv.guaranteedDayHours} hr (${money(inv.guaranteedDayAmount)}) — days of more than 8.5 clocked hours are paid at 10. Itemized on the attached PDF.</div>` : ''}
   </div>`;
   return {
     subject: `Invoice #${invNo} — ${inv.company} — ${inv.period || fmt(inv.weekStart)}`,
-    html: note + readoutBlock(inv) + flagsBlock(inv.flags),
+    html: note + readoutBlock(inv) + flagsBlock(inv.flags) + (meta.slabAttached ? slabBar() : ''),
   };
 }
 
