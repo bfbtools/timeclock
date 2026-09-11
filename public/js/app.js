@@ -4,6 +4,8 @@
 // preview before the service account exists), it falls back to demo data so the
 // whole flow stays clickable — the demo badge makes that state obvious.
 
+import { workerRequiresQr, shouldShowSlabMessage } from './shared.js';
+
 /* ------------------------------------------------------------------ i18n */
 const I = {
   en: {
@@ -82,6 +84,11 @@ const I = {
     errSub: 'Pick your company.', noSite: 'Scan Jobsite QR Code to Clock In.',
     noSiteOut: 'Scan Jobsite QR Code to Clock Out.',
     noSiteShort: 'Scan the jobsite QR',
+    noSitePickIn: 'Pick Your Jobsite to Clock In.', noSitePickOut: 'Pick Your Jobsite to Clock Out.',
+    noSitePickShort: 'Pick your jobsite',
+    pj_title: 'Pick Your Jobsite', pj_note: "QR scanning is off for you — pick the jobsite you're working at.",
+    pj_site: 'Jobsite', pj_confirm: 'Continue', pj_none: 'No active jobsites to pick from. Call the office.',
+    slab_title: 'Slab Mobile is here.', slab_body: 'Clock in from the app instead — same PIN, same jobs.',
   },
   es: {
     loc: 'es',
@@ -159,6 +166,11 @@ const I = {
     errSub: 'Selecciona tu compañía.', noSite: 'Escanea el código QR de la obra para marcar entrada.',
     noSiteOut: 'Escanea el código QR de la obra para marcar salida.',
     noSiteShort: 'Escanea el QR de la obra',
+    noSitePickIn: 'Selecciona tu obra para marcar entrada.', noSitePickOut: 'Selecciona tu obra para marcar salida.',
+    noSitePickShort: 'Selecciona tu obra',
+    pj_title: 'Selecciona tu obra', pj_note: 'El código QR está desactivado para ti — selecciona la obra donde trabajas.',
+    pj_site: 'Obra', pj_confirm: 'Continuar', pj_none: 'No hay obras activas para elegir. Llama a la oficina.',
+    slab_title: 'Slab Mobile ya está aquí.', slab_body: 'Fiche desde la aplicación — mismo PIN, mismos trabajos.',
   },
 };
 let lang = localStorage.getItem('bfb_lang') || 'es'; // gate is shown until a choice is made
@@ -174,7 +186,7 @@ const views = {
   timelog: $('view-timelog'), addpunch: $('view-addpunch'), invoice: $('view-invoice'),
   materials: $('view-materials'), rate: $('view-rate'), scan: $('view-scan'),
   switch: $('view-switch'), team: $('view-team'), choice: $('view-choice'), lang: $('view-lang'),
-  wrongsite: $('view-wrongsite'),
+  wrongsite: $('view-wrongsite'), pickjobsite: $('view-pickjobsite'),
 };
 function show(name) {
   Object.values(views).forEach((v) => v.classList.remove('active'));
@@ -324,7 +336,8 @@ function demoSite() {
       // Independent Sub (Invoice).
       { id: 'W1', name: 'Fredy (Employee)', sub: 'San Ignacio', type: 'employee', hasPin: true, status: 'out', todayHours: 8, weekHours: 32 },
       { id: 'W5', name: 'Diego (Sub/Owner)', sub: 'Diego Exterior LLC', type: 'owner', hasPin: true, status: 'out', todayHours: 0, weekHours: 18.5 },
-      { id: 'W7', name: 'Sofia (Independent)', sub: 'Sofia Drywall', type: 'independent', hasPin: true, status: 'out', todayHours: 4, weekHours: 22 },
+      // QR off for Sofia (demo of the qrRequired:false pick-a-jobsite flow).
+      { id: 'W7', name: 'Sofia (Independent)', sub: 'Sofia Drywall', type: 'independent', hasPin: true, status: 'out', todayHours: 4, weekHours: 22, qrRequired: false },
       { id: 'W2', name: 'Carlos', sub: 'San Ignacio', type: 'employee', hasPin: true, status: 'in', todayHours: 6.25, weekHours: 24.25 },
       { id: 'W3', name: 'Carlito', sub: 'San Ignacio', type: 'employee', hasPin: true, status: 'out', todayHours: 0, weekHours: 40 },
       { id: 'W4', name: 'Elman', sub: 'SnowPeak', type: 'employee', hasPin: false, status: 'out', todayHours: 0, weekHours: 0 },
@@ -423,6 +436,7 @@ function applyI18n() {
   if (views.timelog.classList.contains('active') && state.timelog) renderTimeLog(state.timelog);
   if (views.invoice.classList.contains('active') && state.invoiceData) renderInvoice(state.invoiceData);
   if (views.recovery.classList.contains('active') && state.worker && state.worker.openInfo) $('recDay').value = recDayLabel(state.worker.openInfo);
+  if (!$('slabMsg').classList.contains('hidden')) { $('slabMsgTitle').textContent = t('slab_title'); $('slabMsgBody').textContent = t('slab_body'); }
   tick();
 }
 
@@ -430,13 +444,18 @@ function applyI18n() {
 function updateSiteName() {
   if (!state.data) return;
   // At the scan-home, prompt for the next action: clock OUT if they're on the
-  // clock, otherwise clock IN.
-  const noSiteMsg = (state.worker && state.worker.status === 'in') ? t('noSiteOut') : t('noSite');
+  // clock, otherwise clock IN. A worker with qrRequired:false picks the
+  // jobsite from a list instead — different copy/icon, same idea.
+  const pickMode = state.noSite && !workerRequiresQr(state.worker);
+  const noSiteMsg = pickMode
+    ? ((state.worker && state.worker.status === 'in') ? t('noSitePickOut') : t('noSitePickIn'))
+    : ((state.worker && state.worker.status === 'in') ? t('noSiteOut') : t('noSite'));
   $('siteName').textContent = state.data.project?.siteName
     || (state.noSite ? noSiteMsg : (lang === 'en' ? 'Unknown site' : 'Obra desconocida'));
-  // With no jobsite, the card becomes a tappable "scan the QR" button (camera icon).
+  // With no jobsite, the card becomes a tappable button: "scan the QR" (camera
+  // icon) normally, or "pick your jobsite" (list icon) when QR is off for them.
   $('jobsiteCard').classList.toggle('scannable', state.noSite);
-  $('jobsiteIcon').textContent = state.noSite ? 'photo_camera' : 'distance';
+  $('jobsiteIcon').textContent = state.noSite ? (pickMode ? 'checklist' : 'photo_camera') : 'distance';
 }
 // The gray X on the jobsite card: drop the scanned site and return to the
 // "scan a QR code" state so a different code can be scanned.
@@ -559,7 +578,13 @@ function setMainButton() {
   $('switchBtn').classList.add('hidden'); // shown only in the clocked-in branch below
   if (state.noSite) {
     btn.disabled = true; btn.classList.remove('out');
-    label.textContent = t('noSiteShort'); icon.textContent = 'qr_code_scanner';
+    // Keep the jobsite card's own text/icon in sync too — this is the one place
+    // every worker-identity change (pick, remembered, logout) already flows
+    // through, so re-run it here rather than at each call site.
+    updateSiteName();
+    const pickMode = !workerRequiresQr(state.worker);
+    label.textContent = pickMode ? t('noSitePickShort') : t('noSiteShort');
+    icon.textContent = pickMode ? 'checklist' : 'qr_code_scanner';
     $('hint').textContent = ''; // no "tap to start/end your workday" line at the scan-home
     // At the scan-home, a clocked-in worker can still switch jobsites: the button
     // opens the scanner so they scan the site they're moving to (see switchBtn).
@@ -1397,6 +1422,36 @@ function handleScan(text) {
   setTimeout(() => { if (scanStream) { $('scanMsg').textContent = t('scan_hint'); scanLoop(); } }, 1500);
 }
 
+/* ------------------------------------------------- pick a jobsite (QR off) */
+// The qrRequired:false counterpart to scanning: pick the jobsite from the
+// same `sites` list the QR would have named (docs/bfb-timeclock-spec.md "QR
+// Required"), then act exactly as if that site had been scanned. The next
+// punch's home still resets to "no site" (closeConfirm()), same as a scan —
+// a worker with QR off just picks again instead of scanning again.
+function openJobsitePicker() {
+  showLoading(false);
+  const sel = $('pjSite');
+  sel.innerHTML = '';
+  const sites = state.data?.sites || [];
+  if (!sites.length) { alert(t('pj_none')); return; }
+  sites.forEach((s) => {
+    const o = document.createElement('option'); o.value = s.qrParam; o.textContent = s.siteName; sel.appendChild(o);
+  });
+  sel.selectedIndex = 0;
+  show('pickjobsite');
+}
+function confirmJobsitePicker() {
+  const qr = $('pjSite').value;
+  const s = (state.data?.sites || []).find((x) => x.qrParam === qr);
+  if (!s) return;
+  state.site = qr;
+  state.data.project = { id: s.id, siteName: s.siteName, qrParam: s.qrParam };
+  state.noSite = false;
+  updateSiteName();
+  setMainButton();
+  show('clock');
+}
+
 /* ------------------------------------------------------------------ reset / nav */
 function resetToClock() {
   state.pinBuf = ''; state.pinFirst = ''; state.authedPin = null;
@@ -1463,8 +1518,15 @@ function bind() {
     if (!state.worker) { alert(t('pickFirst')); return; }
     openPin('secondary');
   });
-  // No-jobsite card doubles as a "scan the QR" button.
-  $('jobsiteCard').addEventListener('click', () => { if (state.noSite) openScanner(); });
+  // No-jobsite card doubles as a "scan the QR" button — or, for a worker with
+  // QR off, a "pick your jobsite" button (see workerRequiresQr()).
+  $('jobsiteCard').addEventListener('click', () => {
+    if (!state.noSite) return;
+    if (!workerRequiresQr(state.worker)) openJobsitePicker();
+    else openScanner();
+  });
+  $('pjBack').addEventListener('click', () => show('clock'));
+  $('pjConfirm').addEventListener('click', confirmJobsitePicker);
   $('jobsiteClear').addEventListener('click', (e) => { e.stopPropagation(); clearJobsite(); });
   $('scanCancel').addEventListener('click', () => { state.scanForSwitch = false; stopScanner(); show('clock'); });
 
@@ -1529,6 +1591,11 @@ function bind() {
     const b = e.target.closest('.key'); if (b) pinKey(b.dataset.k);
   });
 
+  // Slab Mobile one-time message (flag-gated; see maybeShowSlabMessage()).
+  $('slabMsgIos').addEventListener('click', () => dismissSlabMessage(SLAB_APP_URL + '#ios'));
+  $('slabMsgAndroid').addEventListener('click', () => dismissSlabMessage(SLAB_APP_URL + '#android'));
+  $('slabMsgKeep').addEventListener('click', () => dismissSlabMessage());
+
   $('recSubmit').addEventListener('click', submitRecovery);
   $('recCancel').addEventListener('click', resetToClock);
   $('fbSubmit').addEventListener('click', submitFallback);
@@ -1540,6 +1607,33 @@ function bind() {
     $('confirm').classList.remove('show');
     doPunch('IN'); // clocks into the scanned site → normal "You're Clocked In" confirmation
   });
+}
+
+/* ------------------------------------------------- Slab Mobile one-time message */
+// Adrienne, 2026-09-06 (slab-dashboard docs/plans/SLAB_MOBILE_CONDUCTOR_HANDOFF.md
+// §7.6): once the native Slab Mobile app is live, tell web-clock workers it
+// exists — once per device, never again after any of the three buttons. The
+// web app changes in no other way. Flip this to `true` only after Adrienne has
+// published both app builds AND the /get-the-app download page on Slab.
+const SLAB_MOBILE_MESSAGE = false;
+const SLAB_APP_URL = 'https://slab.backforty.builders/get-the-app';
+const SLAB_MSG_SEEN_KEY = 'slab_mobile_msg_seen';
+function slabMsgSeen() {
+  try { return localStorage.getItem(SLAB_MSG_SEEN_KEY); } catch { return null; } // private mode etc.
+}
+function markSlabMsgSeen() {
+  try { localStorage.setItem(SLAB_MSG_SEEN_KEY, '1'); } catch { /* private mode etc. */ }
+}
+function maybeShowSlabMessage() {
+  if (!shouldShowSlabMessage(SLAB_MOBILE_MESSAGE, slabMsgSeen())) return;
+  $('slabMsgTitle').textContent = t('slab_title');
+  $('slabMsgBody').textContent = t('slab_body');
+  $('slabMsg').classList.remove('hidden');
+}
+function dismissSlabMessage(href) {
+  markSlabMsgSeen();
+  $('slabMsg').classList.add('hidden');
+  if (href) location.href = href;
 }
 
 /* ------------------------------------------------------------------ boot */
@@ -1568,5 +1662,8 @@ async function boot() {
   renderRemembered();
   setMainButton();
   applyI18n();
+  // Only on top of an already-chosen language, so a brand-new device sees the
+  // language gate uninterrupted; it gets this message on its next visit.
+  if (langChosen()) maybeShowSlabMessage();
 }
 boot();

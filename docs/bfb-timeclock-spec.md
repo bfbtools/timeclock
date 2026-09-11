@@ -58,8 +58,8 @@ Match **`assets/BFB_TimeClock_ClockIn_Preview.html`** exactly: warm light theme,
 
 ## Data model (Google Sheet tabs)
 
-- **Subs:** SubID, CompanyName, HasEmployees, DefaultPayRate, AutoInvoice, Email, Active
-- **Workers:** WorkerID, Type (employee/independent/owner), First, Last, Nickname, SubID, Email, PIN, PayRateOverride, GCRateOverride, Active
+- **Subs:** SubID, CompanyName, HasEmployees, DefaultPayRate, AutoInvoice, Email, Active, QRRequired (optional — see "QR Required" below)
+- **Workers:** WorkerID, Type (employee/independent/owner), First, Last, Nickname, SubID, Email, PIN, PayRateOverride, GCRateOverride, Active, QRRequired (optional — see "QR Required" below)
 - **Projects:** ProjectID, SiteName, BTProject, BillsToGC, GCName, GCRate, QRParam, Active
 - **Punches:** PunchID, Timestamp, Site, Project, SubID, WorkerID, WorkerName, Action (IN/OUT), Source (scan/manual), Edited
 - **Materials:** MaterialID, Timestamp, SubID, Project, Amount, Note, ReceiptURL
@@ -67,6 +67,14 @@ Match **`assets/BFB_TimeClock_ClockIn_Preview.html`** exactly: warm light theme,
 - **InvoiceLog:** InvoiceID, Date, SubID, WeekStart, WeekEnd, Total, Type (sub/QB/GC), Status, SentTo
 
 (The Sheet is already seeded with Subs, Workers, and Projects.)
+
+### QR Required
+
+Whether a worker must scan the jobsite QR to clock in/out, or may pick the jobsite from a list instead. An OPTIONAL `QRRequired` column on **both** the Workers and Subs tabs (TRUE/FALSE, yes/no, or 1/0, any case) — the code only ever reads these columns, never writes them.
+
+- **Resolution** (`resolveQrRequired` in `lib/model.js`): the worker's own `QRRequired` cell if set, else the sub's, else `true`. A Sheet with neither column resolves every worker to `true` — today's behavior, unchanged.
+- `/api/site` returns `qrRequired:<bool>` on every roster row (`workers[]`) and on every sub row (`subs[]`).
+- The web app honors it: a worker with `qrRequired:false` may pick their jobsite from the `sites` list instead of scanning; a worker with `true` keeps the QR-scan flow.
 
 ## Business rules
 

@@ -51,6 +51,14 @@ export default guard(async (req) => {
       guaranteedDayHours: s.invoice.guaranteedDayHours,
       guaranteedDayAmount: s.invoice.guaranteedDayAmount,
       guaranteedDayByProject: s.invoice.guaranteedDayByProject,
+      // Per-project invoice lines so Slab's sub-invoice renders REAL rates/amounts
+      // instead of deriving a blended rate (total/hours). One entry per job for the
+      // week, matching the Time Clock's own PDF row unit (pdf.js): { projectId,
+      // name, hours (quarter-rounded billable), rate (null when workers mix rates —
+      // Slab prints "—", never a blend), amount (Σ worker hrs × real pay rate),
+      // perDay[] for the DATES range }. Uplift stays out of these lines (it's on
+      // guaranteedDay* + folds into total), matching the invoice's separate uplift row.
+      projects: s.invoice.projects,
       total: s.invoice.total,
       autoSend: s.autoSend,
       independent: s.independent,

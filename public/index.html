@@ -11,7 +11,7 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/css/styles.css?v=2">
+<link rel="stylesheet" href="/css/styles.css?v=3">
 </head>
 <body>
   <div class="screen">
@@ -331,6 +331,20 @@
         <button class="clock-btn ghost" id="swCancel" data-i18n="cancel">Cancel</button>
       </section>
 
+      <!-- ============ VIEW: PICK JOBSITE (QR not required for this worker) ============ -->
+      <section class="view" id="view-pickjobsite">
+        <div class="sec-head">
+          <button class="backbtn" id="pjBack"><span class="material-symbols-rounded">chevron_left</span><span data-i18n="cancel">Cancel</span></button>
+        </div>
+        <div class="sec-title" data-i18n="pj_title">Pick Your Jobsite</div>
+        <div class="form-note" data-i18n="pj_note">QR scanning is off for you — pick the jobsite you're working at.</div>
+        <div class="field gap-64"><label data-i18n="pj_site">Jobsite</label>
+          <div class="select-shell"><select id="pjSite"></select><span class="material-symbols-rounded select-chev">expand_more</span></div>
+        </div>
+        <div class="spacer"></div>
+        <button class="clock-btn" id="pjConfirm"><span class="material-symbols-rounded">check</span><span data-i18n="pj_confirm">Continue</span></button>
+      </section>
+
       <!-- ============ VIEW: QR SCANNER ============ -->
       <section class="view" id="view-scan">
         <div class="sec-head">
@@ -392,8 +406,19 @@
         <button class="clock-btn ghost" id="cdNo" data-i18n="cancel">Cancel</button>
       </div>
     </div>
+
+    <!-- ============ SLAB MOBILE ONE-TIME MESSAGE (flag-gated, once per device) ============ -->
+    <div class="confirm-dialog hidden" id="slabMsg">
+      <div class="cd-box">
+        <div class="cd-title" id="slabMsgTitle">Slab Mobile is here.</div>
+        <div class="cd-msg" id="slabMsgBody">Clock in from the app instead — same PIN, same jobs.</div>
+        <button class="clock-btn" id="slabMsgIos"><span class="material-symbols-rounded">phone_iphone</span><span id="slabMsgIosLabel">Get It For iPhone</span></button>
+        <button class="clock-btn ghost" id="slabMsgAndroid"><span class="material-symbols-rounded">android</span><span id="slabMsgAndroidLabel">Get It For Android</span></button>
+        <button class="linkbtn" id="slabMsgKeep">Keep Using The Web Clock</button>
+      </div>
+    </div>
   </div>
 
-  <script src="/js/app.js?v=2" type="module"></script>
+  <script src="/js/app.js?v=3" type="module"></script>
 </body>
 </html>

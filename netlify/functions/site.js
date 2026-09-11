@@ -4,7 +4,7 @@
 // the "my name isn't here" fallback. No PINs are ever returned.
 
 import { json, query, guard } from './lib/http.js';
-import { getProjectByQR, buildRoster, getSubsById, getActiveSites } from './lib/model.js';
+import { getProjectByQR, buildRoster, getSubsById, getActiveSites, subForSite } from './lib/model.js';
 
 export default guard(async (req) => {
   const qr = query(req, 'site');
@@ -23,7 +23,7 @@ export default guard(async (req) => {
     workers: roster,
     subs: [...subs.values()]
       .filter((s) => String(s.Active).trim().toUpperCase().startsWith('Y'))
-      .map((s) => ({ id: String(s.SubID).trim(), company: s.CompanyName })),
+      .map(subForSite),
     sites, // active jobsites, for the offsite Time Log site picker
   });
 });

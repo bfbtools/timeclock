@@ -29,6 +29,25 @@ test('independent: one project, per-day breakdown, labor total', () => {
   assert.equal(inv.total, 650);
 });
 
+test('projects[]: mixed rates on one project → rate null (Slab prints "—"), amount is the real sum', () => {
+  // Two workers on the SAME project at DIFFERENT rates: $50 (sub default) and $35 (override).
+  const sub = { SubID: 'S1', CompanyName: 'Lopez', DefaultPayRate: '50' };
+  const workers = [
+    { WorkerID: 'W1', First: 'A', SubID: 'S1' },                         // $50
+    { WorkerID: 'W2', First: 'B', SubID: 'S1', PayRateOverride: '35' },  // $35
+  ];
+  const punches = [
+    P('2026-07-06 07:00:00', 'IN', 'PRJ_A', 'W1'), P('2026-07-06 15:00:00', 'OUT', 'PRJ_A', 'W1'), // 8h @ 50 = 400
+    P('2026-07-06 07:00:00', 'IN', 'PRJ_A', 'W2'), P('2026-07-06 11:00:00', 'OUT', 'PRJ_A', 'W2'), // 4h @ 35 = 140
+  ];
+  const inv = buildSubInvoice({ sub, workers, punches, weekStart: '2026-07-06' });
+  assert.equal(inv.projects.length, 1);
+  assert.equal(inv.projects[0].rate, null);   // mixed → no blended rate; Slab renders "—"
+  assert.equal(inv.projects[0].hours, 12);
+  assert.equal(inv.projects[0].amount, 540);  // 400 + 140, real per-worker rates
+  assert.equal(inv.laborTotal, 540);
+});
+
 test('materials add a line and roll into the total', () => {
   const sub = { SubID: 'S1', CompanyName: 'Diego', DefaultPayRate: '50' };
   const workers = [{ WorkerID: 'W1', First: 'Diego', SubID: 'S1' }];

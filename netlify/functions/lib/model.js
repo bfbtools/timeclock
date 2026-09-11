@@ -47,6 +47,35 @@ export function displayName(w) {
 const yes = (v) => String(v).trim().toUpperCase() === 'Y' || String(v).trim().toUpperCase() === 'YES' || v === true;
 export const isActive = (row) => yes(row.Active);
 
+/* ----------------------------------------------------------- QR Required */
+// A boolean cell can arrive as an actual boolean, TRUE/FALSE, yes/no, or 1/0
+// (any case). Blank/absent (including a column that doesn't exist on the tab
+// at all — readTab simply never sets the key) resolves to `undefined` so the
+// caller can fall through to the next step. Unrecognized text is treated the
+// same as blank rather than guessed. Exported for tests.
+export function parseQrFlag(v) {
+  if (v === true || v === false) return v;
+  const s = String(v ?? '').trim().toLowerCase();
+  if (!s) return undefined;
+  if (['true', 'yes', 'y', '1'].includes(s)) return true;
+  if (['false', 'no', 'n', '0'].includes(s)) return false;
+  return undefined;
+}
+
+// Whether a worker must scan the jobsite QR to clock in/out. Both `QRRequired`
+// columns (Workers, Subs) are OPTIONAL — a Sheet with neither column resolves
+// every worker to `true` (today's behavior, unchanged). Resolution order:
+// the worker's own cell if set, else the sub's, else true. `sub` may be
+// omitted/null (e.g. resolving a Subs-tab row for itself — see `subForSite`).
+// Exported for tests.
+export function resolveQrRequired(worker, sub) {
+  const own = parseQrFlag(worker && worker.QRRequired);
+  if (own !== undefined) return own;
+  const subFlag = parseQrFlag(sub && sub.QRRequired);
+  if (subFlag !== undefined) return subFlag;
+  return true;
+}
+
 // A PIN read back from the Sheet may have lost a leading zero if it was ever
 // written with USER_ENTERED (e.g. "0304" stored as the number 304). PINs are
 // exactly 4 digits, so left-pad a short all-digit value back to 4 for comparison
@@ -172,6 +201,26 @@ export function currentWeekHours(workerPunches, weekStart, weekEnd) {
   return Math.round((minutes / 60) * 100) / 100;
 }
 
+// Build one /api/site roster row (pure — no I/O; exported for tests and used
+// by buildRoster below). `qrRequired` resolution is in resolveQrRequired().
+export function rosterRow({ worker: w, sub, punchList, today, weekStart, weekEnd }) {
+  const st = computeStatus(punchList);
+  return {
+    id: String(w.WorkerID).trim(),
+    name: displayName(w),
+    sub: sub ? sub.CompanyName : '',
+    type: String(w.Type || 'employee').trim().toLowerCase(),
+    hasPin: !!String(w.PIN).trim(),
+    status: st.status,
+    openPriorDate: st.openPriorDate,
+    openInfo: st.openInfo,
+    open: st.open, // { projectId, siteName } of the current open shift (or null)
+    todayHours: currentWeekHours(punchList, today, today), // single-day range
+    weekHours: currentWeekHours(punchList, weekStart, weekEnd),
+    qrRequired: resolveQrRequired(w, sub),
+  };
+}
+
 // Build the /api/site worker list (name, sub, state) for all active workers.
 export async function buildRoster() {
   const [{ rows: workers }, { rows: punches }, subs] = await Promise.all([
@@ -192,26 +241,19 @@ export async function buildRoster() {
   const createdMs = (id) => { const m = /^W-(\d{13})/.exec(String(id || '')); return m ? Number(m[1]) : 0; };
   const roster = workers.filter(isActive).map((w) => {
     const punchList = byWorker.get(String(w.WorkerID).trim()) || [];
-    const st = computeStatus(punchList);
     const sub = subs.get(String(w.SubID).trim());
-    return {
-      id: String(w.WorkerID).trim(),
-      name: displayName(w),
-      sub: sub ? sub.CompanyName : '',
-      type: String(w.Type || 'employee').trim().toLowerCase(),
-      hasPin: !!String(w.PIN).trim(),
-      status: st.status,
-      openPriorDate: st.openPriorDate,
-      openInfo: st.openInfo,
-      open: st.open, // { projectId, siteName } of the current open shift (or null)
-      todayHours: currentWeekHours(punchList, today, today), // single-day range
-      weekHours: currentWeekHours(punchList, weekStart, weekEnd),
-    };
+    return rosterRow({ worker: w, sub, punchList, today, weekStart, weekEnd });
   });
   // Recently-created employees first (so a just-added worker like a new hire finds
   // themselves at the top of the picker). Stable sort keeps legacy IDs in sheet order.
   roster.sort((a, b) => createdMs(b.id) - createdMs(a.id));
   return roster;
+}
+
+// Build one /api/site sub-list row (pure). `qrRequired` here is the sub's own
+// cell (no per-worker override to apply — this row names the company itself).
+export function subForSite(s) {
+  return { id: String(s.SubID).trim(), company: s.CompanyName, qrRequired: resolveQrRequired(null, s) };
 }
 
 /* ----------------------------------------------------------- writes */
