@@ -36,6 +36,68 @@ export function toYN(v) {
   return (v === true || ['y', 'yes', 'true', '1'].includes(String(v).trim().toLowerCase())) ? 'Y' : 'N';
 }
 
+// SubID for a new Subs row: first 6 letters (A-Z only) of companyName, uppercased;
+// on collision with an existing SubID, appends 2, 3, 4… until unique. Fewer than 6
+// letters in the name → uses what there is. Exported for tests.
+export function genSubId(companyName, existingIds) {
+  const base = String(companyName || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6);
+  const taken = new Set((existingIds || []).map((id) => String(id || '').trim().toUpperCase()));
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base}${n}`)) n++;
+  return `${base}${n}`;
+}
+
+// Case-insensitive CompanyName lookup against Subs rows (same style as add-worker's
+// subName match). Exported for tests.
+export function findSubByCompanyName(subs, companyName) {
+  const name = String(companyName || '').trim().toLowerCase();
+  return (subs || []).find((s) => String(s.CompanyName || '').trim().toLowerCase() === name);
+}
+
+// Pure decision logic for op:'add-sub' — validates, checks for a duplicate
+// CompanyName (case-insensitive), and builds the Subs row to append. Kept
+// separate from the handler so it's testable without touching Sheets.
+// Exported for tests.
+export function buildAddSub(input, existingSubs) {
+  const companyName = String((input && input.companyName) || '').trim();
+  if (!companyName) return { ok: false, status: 400, error: 'companyName required' };
+  if (findSubByCompanyName(existingSubs, companyName)) return { ok: false, status: 409, error: 'sub exists' };
+  const subId = genSubId(companyName, (existingSubs || []).map((s) => s.SubID));
+  const defaultPayRate = (input.defaultPayRate === '' || input.defaultPayRate == null) ? '' : input.defaultPayRate;
+  const row = {
+    SubID: subId,
+    CompanyName: companyName,
+    Phone: String((input && input.phone) || '').trim(),
+    Email: String((input && input.email) || '').trim(),
+    DefaultPayRate: defaultPayRate,
+    HasEmployees: 'N',
+    AutoInvoice: 'Y',
+    Active: 'Y',
+  };
+  return { ok: true, subId, companyName, row };
+}
+
+// Pure decision logic for op:'edit-sub' — looks up the Subs row by subId and
+// builds a Phone/Email patch from whichever field(s) were given (the other is
+// left untouched). Kept separate from the handler so it's testable without
+// touching Sheets. Exported for tests.
+export function buildEditSub(input, existingSubs) {
+  const subId = String((input && input.subId) || '').trim();
+  if (!subId) return { ok: false, status: 400, error: 'subId required' };
+  const s = (existingSubs || []).find((r) => String(r.SubID || '').trim() === subId);
+  if (!s) return { ok: false, status: 404, error: 'Sub not found' };
+  const hasPhone = !!(input && input.phone !== undefined);
+  const hasEmail = !!(input && input.email !== undefined);
+  if (!hasPhone && !hasEmail) return { ok: false, status: 400, error: 'phone or email required' };
+  const patch = {};
+  if (hasPhone) patch.Phone = String(input.phone == null ? '' : input.phone).trim();
+  if (hasEmail) patch.Email = String(input.email == null ? '' : input.email).trim();
+  const phone = hasPhone ? patch.Phone : String(s.Phone || '').trim();
+  const email = hasEmail ? patch.Email : String(s.Email || '').trim();
+  return { ok: true, subId, patch, phone, email, rowNumber: s._rowNumber };
+}
+
 export default guard(async (req) => {
   if (req.method !== 'POST') return json(405, { ok: false, error: 'Method not allowed' });
   const token = query(req, 'token');
@@ -241,6 +303,19 @@ export default guard(async (req) => {
     return json(200, { ok: true, op, workerId: String(w.WorkerID).trim(), hasPin: !!pinVal, cleared: !pinVal });
   }
 
+  // add-sub — create a new Subs row (a subcontractor company, not an employee).
+  //   SubID is auto-generated from the company name (first 6 letters A-Z,
+  //   uppercased; collision-suffixed 2, 3, 4…). Refuses a duplicate company name
+  //   (case-insensitive) with 409 'sub exists'.
+  //   { op:'add-sub', companyName, phone, email, defaultPayRate, editedBy }
+  if (op === 'add-sub') {
+    const { rows: subs } = await readTab(TABS.SUBS);
+    const result = buildAddSub(b, subs);
+    if (!result.ok) return json(result.status, { ok: false, error: result.error });
+    await appendRow(TABS.SUBS, result.row);
+    return json(200, { ok: true, subId: result.subId, companyName: result.companyName });
+  }
+
   // list-subs — Subs rows for the Directory: company + current default pay rate.
   //   { op:'list-subs' }
   if (op === 'list-subs') {
@@ -275,6 +350,20 @@ export default guard(async (req) => {
     if (!s) return json(404, { ok: false, error: 'Sub not found' });
     await updateRow(TABS.SUBS, s._rowNumber, { DefaultPayRate: rawRate });
     return json(200, { ok: true, op, subId, defaultPayRate: rawRate });
+  }
+
+  // edit-sub — update a sub's Phone and/or Email (Subs.Phone / Subs.Email). Feeds
+  //   Slab's m-sub-details.html, where a sub owner edits their own company's phone
+  //   and email: the sign-in phone gate reads Subs!Phone, and sub invoices go out
+  //   to Subs!Email. Only the field(s) given are touched — sending just `phone`
+  //   leaves Email alone, and vice versa.
+  //   { op:'edit-sub', subId, phone?, email?, editedBy }
+  if (op === 'edit-sub') {
+    const { rows: subs } = await readTab(TABS.SUBS);
+    const result = buildEditSub(b, subs);
+    if (!result.ok) return json(result.status, { ok: false, error: result.error });
+    await updateRow(TABS.SUBS, result.rowNumber, result.patch);
+    return json(200, { ok: true, op, subId: result.subId, phone: result.phone, email: result.email });
   }
 
   // set-sub-guarantee — the "Guaranteed Day" policy for a sub (SUB_DAY_RATE_HANDOFF
@@ -332,5 +421,5 @@ export default guard(async (req) => {
     return json(200, { ok: true, op, workerId: wid, punchCount });
   }
 
-  return json(400, { ok: false, error: 'unknown op (use add | edit | delete | add-worker | list-workers | edit-worker | set-pin | list-subs | set-sub-rate | get-pin | delete-worker)' });
+  return json(400, { ok: false, error: 'unknown op (use add | edit | delete | add-worker | list-workers | edit-worker | set-pin | add-sub | list-subs | set-sub-rate | edit-sub | get-pin | delete-worker)' });
 });
